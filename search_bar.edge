@@ -1,0 +1,7 @@
+<form class="adonai-search-form {{ wrapperClass || '' }}" data-adonai-search-form action="/#collection" method="get" role="search">
+  <label class="sr-only" for="{{ inputId || 'adonai-search' }}">Search the Adonai collection</label>
+  <input id="{{ inputId || 'adonai-search' }}" class="adonai-search-input" data-adonai-search-input name="q" type="search" value="{{ searchQuery || '' }}" placeholder="Search thrifts" autocomplete="off" enterkeyhint="search" />
+  <button class="adonai-search-button" type="submit" aria-label="Submit product search">
+    <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.8" cy="10.8" r="5.8" /><path stroke-linecap="round" d="m15.2 15.2 4.3 4.3" /></svg>
+  </button>
+</form>

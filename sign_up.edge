@@ -1,0 +1,13 @@
+<section class="mx-auto max-w-md rounded-lg border border-adonai-line bg-white p-6 shadow-card sm:p-8">
+  <div class="mb-8"><img src="/assets/primary-logo-light.png" alt="Adonai Thrift Store" class="h-12 w-auto object-contain object-left" /><p class="mt-7 text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">Kampala customer account</p><h1 class="mt-2 text-3xl font-black tracking-tight">Create your account</h1><p class="mt-2 text-sm leading-6 text-adonai-muted">Save your delivery details and review orders from Adonai Thrift Store.</p></div>
+  <form method="POST" action="{{ signUpAction || '/account/sign-up' }}" class="grid gap-4" novalidate>
+    @include('components/form_security')
+    <label class="grid gap-2 text-xs font-bold text-adonai-ink">Full name<input class="adonai-input" name="name" type="text" autocomplete="name" required placeholder="Your name" /></label>
+    <label class="grid gap-2 text-xs font-bold text-adonai-ink">Email<input class="adonai-input" name="email" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
+    <label class="grid gap-2 text-xs font-bold text-adonai-ink">Phone<input class="adonai-input" name="phone" type="tel" autocomplete="tel" required placeholder="+256 765 652 403" /></label>
+    <label class="grid gap-2 text-xs font-bold text-adonai-ink">Password<div class="relative"><input id="sign-up-password" class="adonai-input pr-12" name="password" type="password" autocomplete="new-password" required /><button type="button" data-toggle-password="sign-up-password" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-adonai-muted">Show</button></div></label>
+    <label class="flex items-start gap-2 text-xs leading-5 text-adonai-muted"><input type="checkbox" name="marketingConsent" class="mt-1 accent-adonai-primary" /> Keep me updated about new listings from Adonai Thrift Store.</label>
+    <button class="adonai-btn-primary mt-2 w-full" type="submit">Create account</button>
+  </form>
+  <p class="mt-7 text-center text-sm text-adonai-muted">Already have an account? <a class="font-bold text-adonai-primary" href="{{ signInUrl || '/account/sign-in' }}">Sign in</a></p>
+</section>

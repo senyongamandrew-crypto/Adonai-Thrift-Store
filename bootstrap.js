@@ -1,0 +1,26 @@
+import { assert } from '@japa/assert';
+import app from '@adonisjs/core/services/app';
+import { browserClient } from '@japa/browser-client';
+import { pluginAdonisJS } from '@japa/plugin-adonisjs';
+import { dbAssertions } from '@adonisjs/lucid/plugins/db';
+import testUtils from '@adonisjs/core/services/test_utils';
+import { authBrowserClient } from '@adonisjs/auth/plugins/browser_client';
+import { sessionBrowserClient } from '@adonisjs/session/plugins/browser_client';
+export const plugins = [
+    assert(),
+    pluginAdonisJS(app),
+    dbAssertions(app),
+    browserClient({ runInSuites: ['browser'] }),
+    sessionBrowserClient(app),
+    authBrowserClient(app),
+];
+export const runnerHooks = {
+    setup: [],
+    teardown: [],
+};
+export const configureSuite = (suite) => {
+    if (['browser', 'functional', 'e2e'].includes(suite.name)) {
+        return suite.setup(() => testUtils.httpServer().start());
+    }
+};
+//# sourceMappingURL=bootstrap.js.map

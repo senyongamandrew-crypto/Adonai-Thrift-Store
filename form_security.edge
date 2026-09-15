@@ -1,0 +1,6 @@
+{{ csrfField() }}
+<div class="adonai-form-honeypot" aria-hidden="true">
+  <label for="{{ honeypotId || 'website' }}">Leave this field empty
+    <input id="{{ honeypotId || 'website' }}" name="website" type="text" tabindex="-1" autocomplete="off" />
+  </label>
+</div>

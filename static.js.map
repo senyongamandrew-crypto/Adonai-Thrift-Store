@@ -1,0 +1,1 @@
+{"version":3,"file":"static.js","sourceRoot":"","sources":["../../config/static.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,YAAY,EAAE,MAAM,kBAAkB,CAAA;AAS/C,MAAM,kBAAkB,GAAG,YAAY,CAAC;IAItC,OAAO,EAAE,IAAI;IAOb,IAAI,EAAE,IAAI;IAMV,YAAY,EAAE,IAAI;IAQlB,QAAQ,EAAE,QAAQ;CACnB,CAAC,CAAA;AAEF,eAAe,kBAAkB,CAAA"}

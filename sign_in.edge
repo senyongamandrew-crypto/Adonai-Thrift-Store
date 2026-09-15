@@ -1,0 +1,11 @@
+<section class="mx-auto max-w-md rounded-lg border border-adonai-line bg-white p-6 shadow-card sm:p-8">
+  <div class="mb-8"><img src="/assets/primary-logo-light.png" alt="Adonai Thrift Store" class="h-12 w-auto object-contain object-left" /><p class="mt-7 text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">Customer account</p><h1 class="mt-2 text-3xl font-black tracking-tight">Sign in to Adonai Thrift Store</h1><p class="mt-2 text-sm leading-6 text-adonai-muted">Use your account to review Kampala delivery details and previous orders.</p></div>
+  <form method="POST" action="{{ signInAction || '/account/sign-in' }}" class="grid gap-4" novalidate>
+    @include('components/form_security')
+    <label class="grid gap-2 text-xs font-bold text-adonai-ink">Email or phone<input class="adonai-input" name="identifier" type="text" autocomplete="username" required placeholder="you@example.com or +256..." /></label>
+    <label class="grid gap-2 text-xs font-bold text-adonai-ink">Password<div class="relative"><input id="sign-in-password" class="adonai-input pr-12" name="password" type="password" autocomplete="current-password" required /><button type="button" data-toggle-password="sign-in-password" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-adonai-muted">Show</button></div></label>
+    <div class="flex items-center justify-between gap-4 text-xs"><label class="flex items-center gap-2 text-adonai-muted"><input type="checkbox" name="remember" class="accent-adonai-primary" /> Remember me</label><a href="{{ forgotPasswordUrl || '/account/forgot-password' }}" class="font-bold text-adonai-primary">Forgot password?</a></div>
+    <button class="adonai-btn-primary mt-2 w-full" type="submit">Sign in</button>
+  </form>
+  <p class="mt-7 text-center text-sm text-adonai-muted">New to Adonai? <a class="font-bold text-adonai-primary" href="{{ signUpUrl || '/account/sign-up' }}">Create an account</a></p>
+</section>
