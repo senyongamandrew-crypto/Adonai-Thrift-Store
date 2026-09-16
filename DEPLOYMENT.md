@@ -203,6 +203,70 @@ at boot, so a build is required before the server starts in production.
 
 ---
 
+## Putting the store on your own domain
+
+The `onrender.com` address keeps working either way, so nothing breaks while the
+domain is being set up. Custom domains are included in Render's Hobby plan (2 per
+workspace) and TLS certificates are issued automatically.
+
+A domain must be registered in the shop owner's own name, at a registrar, for
+roughly 10-15 USD per year. A domain name cannot contain spaces, so
+"adonai thrift store" becomes one of:
+
+- `adonaithriftstore.com` — easiest to say out loud
+- `adonai-thrift-store.com` — easier to read
+
+### 1. Register the name
+
+Buy it from a registrar (Namecheap, Porkbun, GoDaddy, Cloudflare Registrar, ...).
+Check the renewal price, not only the first-year price, and make sure the domain
+is registered in your own account — never in someone else's.
+
+### 2. Add it in Render
+
+1. Open the service, then **Settings** in the left pane.
+2. Scroll to **Custom Domains**, click **+ Add Custom Domain**, and enter the
+   domain, for example `adonaithriftstore.com`.
+3. Click **Save**. Render automatically adds the matching `www` entry and
+   redirects one to the other.
+
+The service also keeps its `onrender.com` subdomain, so the old address stays a
+permanent fallback (it can be disabled later under the same settings).
+
+### 3. Point DNS at Render
+
+At the registrar's DNS panel, **delete any `AAAA` records** (Render is IPv4 only),
+then add:
+
+| Type | Host | Value |
+| --- | --- | --- |
+| `A` | `@` (the root domain) | `216.24.57.1` |
+| `CNAME` | `www` | `adonai-thrift-store-hqg3.onrender.com` |
+
+The dashboard shows these exact values — use whatever it displays. If the
+provider supports `ANAME`/`ALIAS` records, those may be used for the root domain
+instead of the `A` record. On Cloudflare the root must use a `CNAME` (proxying
+off until verification completes).
+
+### 4. Verify and wait for the certificate
+
+Return to **Settings -> Custom Domains** and click **Verify** next to the domain.
+Render then issues a TLS certificate. DNS propagation usually takes minutes but
+can take a few hours; HTTP visitors are redirected to HTTPS automatically.
+
+### 5. Tell the app its public address
+
+Once the domain resolves, set the site URL so canonical links, Open Graph tags
+and `sitemap.xml` all use the new address instead of the request host:
+
+```
+SITE_URL=https://adonaithriftstore.com
+```
+
+Add it under **Environment** in the dashboard (see the section above). Without it
+the storefront still works everywhere — it detects the host automatically — but
+search engines are happier with one canonical address.
+
 ## A control appears to do nothing: the cookie banner stays on screen
 
 Symptom: tapping **Accept** on the cookie banner leaves it visible, on every page.
