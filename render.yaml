@@ -1,0 +1,47 @@
+#
+# Render Blueprint for the Adonai Thrift Store storefront.
+#
+# 1. Push this repository to GitHub.
+# 2. In Render: New + > Blueprint, pick the repository and this branch.
+# 3. Fill in the "sync: false" values when Render asks for them.
+#
+# APP_KEY must be a base64 encoded 32 byte value. Generate one with:
+#   node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+#
+services:
+  - type: web
+    name: adonai-thrift-store
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: APP_NAME
+        value: Adonai Thrift Store
+      - key: SESSION_DRIVER
+        value: cookie
+      - key: DB_CONNECTION
+        value: sqlite
+      - key: ANALYTICS_PROVIDER
+        value: none
+      - key: LOG_LEVEL
+        value: info
+      # Set deliberately: Render terminates TLS and forwards x-forwarded-proto,
+      # so the app-level HTTPS redirect stays enabled.
+      - key: FORCE_HTTPS
+        value: true
+      # Secrets / deployment specific values. Render prompts for these.
+      - key: APP_KEY
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: SITE_URL
+        sync: false
+      - key: FLASK_API_BASE_URL
+        sync: false
+      - key: FLASK_INTERNAL_API_TOKEN
+        sync: false

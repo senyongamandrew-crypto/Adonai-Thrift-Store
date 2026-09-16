@@ -1,0 +1,16 @@
+node_modules
+build
+.git
+.github
+.env
+.env.*
+!.env.example
+!.env.test
+public/vite
+storage
+coverage
+*.log
+*.md
+!README.md
+tests
+.DS_Store
