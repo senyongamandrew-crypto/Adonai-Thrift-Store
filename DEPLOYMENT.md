@@ -207,7 +207,21 @@ at boot, so a build is required before the server starts in production.
 
 **"Exited with status 1 while building your code" — the build dies at `npm run build`**
 
-Almost always this: hosting platforms pass your service's environment variables
+First thing to check: `tests/` must stay in the Docker build context. The
+TypeScript project compiles every `.ts` file, and `bin/test.ts` imports
+`../tests/bootstrap.js`. If `.dockerignore` excludes `tests`, the build fails
+with:
+
+```
+bin/test.ts(46,53): error TS2307: Cannot find module '../tests/bootstrap.js'
+Cannot complete the build process as there are TypeScript errors.
+```
+
+The failure only shows up inside Docker — local builds, CI and `node ace test`
+all pass, because they always have `tests/` on disk. That is why `.dockerignore`
+carries a comment telling you not to ignore it.
+
+Another cause of the same symptom: hosting platforms pass your service's environment variables
 into the image build, so `NODE_ENV=production` is visible while `npm ci` runs.
 npm then silently omits **devDependencies**, which is where the build toolchain
 lives (vite, tailwindcss, TypeScript, the ace CLI). The build fails with
