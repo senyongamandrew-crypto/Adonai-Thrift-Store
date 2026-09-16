@@ -72,6 +72,18 @@ test.group('Storefront', () => {
     response.assertBodyContains({ status: 'ok', catalog: 'unavailable' })
   })
 
+  /**
+   * The platform health probe may arrive over plain HTTP without any forwarded
+   * headers. If it were answered with a redirect the deploy would be marked as
+   * failed, so /healthz must always be served directly.
+   */
+  test('never redirects the health probe, even on a plain HTTP request', async ({ client }) => {
+    const response = await client.get('/healthz').header('x-forwarded-proto', 'http')
+
+    response.assertStatus(200)
+    response.assertBodyContains({ status: 'ok' })
+  })
+
   test('answers 503 instead of 404 for product pages during a catalog outage', async ({
     client,
   }) => {

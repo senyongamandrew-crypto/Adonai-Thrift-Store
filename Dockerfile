@@ -6,6 +6,12 @@
 # The build stage compiles the AdonisJS app and the Vite/ Tailwind assets.
 # The runtime stage ships only the compiled app plus production dependencies.
 #
+# The app listens on the port given by the PORT environment variable. Hosting
+# platforms set it themselves (Render uses 10000), so the default below is only
+# a fallback for a plain "docker run". To publish on another port, pass it in:
+#
+#   docker run -e PORT=3333 -p 3333:3333 adonai-thrift-store
+#
 
 # ---------------------------------------------------------------------------
 # Build stage
@@ -35,7 +41,7 @@ FROM node:24-bookworm-slim AS runtime
 
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
-    PORT=3333
+    PORT=10000
 
 WORKDIR /app
 
@@ -50,9 +56,10 @@ RUN mkdir -p storage/media \
 
 USER adonai
 
-EXPOSE 3333
+EXPOSE 10000
 
+# Must always answer 200, including when the platform probes over plain HTTP.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 3333) + '/healthz').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 10000) + '/healthz').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 CMD ["node", "build/bin/server.js"]

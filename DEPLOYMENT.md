@@ -19,7 +19,7 @@ Nothing below needs a database: the storefront keeps no catalog of its own.
 | --- | --- | --- |
 | `NODE_ENV` | yes | `production` on every real deployment |
 | `HOST` | yes | `0.0.0.0` |
-| `PORT` | yes | `3333` locally; most hosts inject their own |
+| `PORT` | yes | `10000` in Docker/Render (the port the platform routes to); `3333` for `npm run preview` |
 | `APP_NAME` | yes | `Adonai Thrift Store` |
 | `APP_KEY` | yes | base64 of 32 random bytes — see below |
 | `APP_URL` | optional | public URL, e.g. `https://adonaithrift.example`. Leave empty on a host and the address is taken from each request |
@@ -70,11 +70,15 @@ Or with plain Docker:
 
 ```bash
 docker build -t adonai-storefront .
-docker run -d --name adonai-storefront -p 3333:3333 \
+docker run -d --name adonai-storefront -p 10000:10000 \
   --env-file .env \
   -v adonai-media:/app/storage \
   adonai-storefront
 ```
+
+The image listens on the port given by `PORT` (default `10000`, which is what
+Render routes to). To publish it on another port, pass both together:
+`docker run -e PORT=3333 -p 3333:3333 ...`.
 
 The image runs as a non-root user, and ships a `HEALTHCHECK` that calls
 `/healthz`.
@@ -189,5 +193,7 @@ at boot, so a build is required before the server starts in production.
   not drop indexed products during an outage.
 - `/healthz` still answers `200` with `"catalog":"unavailable"`, so the platform
   does not kill the container because of a backend issue.
+- `/healthz` is **never** redirected to HTTPS, so a platform health probe that
+  arrives over plain HTTP cannot fail the deploy.
 - Account, contact and checkout submissions surface the backend error instead of
   pretending the order was captured.

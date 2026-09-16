@@ -25,6 +25,10 @@ services:
         value: production
       - key: HOST
         value: 0.0.0.0
+      # Render routes traffic to the port your service listens on. It is
+      # declared here so the container and the platform always agree.
+      - key: PORT
+        value: 10000
       - key: APP_NAME
         value: Adonai Thrift Store
       - key: SESSION_DRIVER
@@ -35,8 +39,9 @@ services:
         value: none
       - key: LOG_LEVEL
         value: info
-      # Render terminates TLS and forwards x-forwarded-proto, so the app-level
-      # HTTPS redirect stays on.
+      # Render terminates TLS and forwards x-forwarded-proto, so plain-HTTP
+      # visitors are redirected to HTTPS. The /healthz probe is never
+      # redirected, so the platform's health check always passes.
       - key: FORCE_HTTPS
         value: true
       # Render generates a base64-encoded 256-bit value, which is exactly what
