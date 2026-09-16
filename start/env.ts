@@ -47,6 +47,24 @@ export default await Env.create(APP_ROOT, {
 
   /*
   |--------------------------------------------------------------------------
+  | Storefront wording (editable from the hosting dashboard)
+  |--------------------------------------------------------------------------
+  |
+  | All optional. When a value is missing or blank the storefront falls back to
+  | the wording it has always used, so the site never breaks and never blanks
+  | out a phone number. See app/services/site_settings.ts for the defaults.
+  |
+  | These are rendered into public pages, so never put a secret in them.
+  */
+  WHATSAPP_NUMBER: Env.schema.string.optional(),
+  CALL_NUMBER: Env.schema.string.optional(),
+  BANNER_TEXT: Env.schema.string.optional(),
+  DELIVERY_NOTE: Env.schema.string.optional(),
+  HERO_HEADLINE: Env.schema.string.optional(),
+  PROMO_BANNER: Env.schema.string.optional(),
+
+  /*
+  |--------------------------------------------------------------------------
   | Private storefront API boundary (Flask / POS backend)
   |--------------------------------------------------------------------------
   |

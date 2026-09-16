@@ -129,6 +129,13 @@ npm run lint                   # eslint
 node ace test                  # Japa smoke tests (no backend required)
 ```
 
+## Changing the shop details
+
+Phone numbers, the headline, the delivery promise and a promotion strip are
+environment variables, not hardcoded text, so they can be changed from the
+hosting dashboard without editing a file. See
+[Changing the shop details](DEPLOYMENT.md#changing-the-shop-details-without-touching-code).
+
 ## Routes
 
 | Method | Path | Purpose |

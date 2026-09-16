@@ -203,6 +203,61 @@ at boot, so a build is required before the server starts in production.
 
 ---
 
+## Changing the shop details without touching code
+
+The storefront wording is driven by environment variables, so the shop owner can
+change a phone number, the headline, the delivery promise or a promotion from
+the Render Dashboard. Nothing here is baked into the site at build time: saving
+the values and redeploying is enough, and **Save and deploy** (rather than a
+full rebuild) is the quickest option.
+
+| Variable | Controls | Built-in value when blank |
+| --- | --- | --- |
+| `WHATSAPP_NUMBER` | Every WhatsApp link and label, site wide | `+256765652403` |
+| `CALL_NUMBER` | Every tap-to-call link and label | `+256748992964` |
+| `BANNER_TEXT` | Opening sentence of the strip at the top of every page | `Shop locally in Kampala.` |
+| `DELIVERY_NOTE` | The short delivery promise beside the contact banner | `Kampala delivery available` |
+| `HERO_HEADLINE` | The large headline on the home and shop pages | `Handpicked Grade-A Thrift and Vintage Clothing in Kampala` |
+| `PROMO_BANNER` | A promotion strip above the contact banner. Blank hides it | *(hidden)* |
+
+Phone numbers can be written in any of these shapes — the links are rebuilt from
+the digits:
+
+```
++256765652403    +256 765 652 403    256765652403    0765 652 403
+```
+
+A missing or blank value always falls back to the built-in value, so a cleared
+field can never blank out a phone number or a headline.
+
+### Steps in the dashboard (works on a phone)
+
+1. Open the service, then click **Environment** in the left pane.
+2. Under **Environment Variables**, click **Add from .env** and paste:
+
+   ```
+   WHATSAPP_NUMBER=+256765652403
+   CALL_NUMBER=+256748992964
+   BANNER_TEXT="Shop locally in Kampala."
+   DELIVERY_NOTE="Kampala delivery available"
+   HERO_HEADLINE="Handpicked Grade-A Thrift and Vintage Clothing in Kampala"
+   PROMO_BANNER=""
+   ```
+
+   (`+ Add Environment Variable` adds them one at a time instead.)
+3. Choose **Save and deploy**. The site restarts with the new values in about a
+   minute, and no rebuild is needed.
+4. Edit any single value later by tapping it, and save again with **Save and
+   deploy**.
+
+Values with spaces must be wrapped in quotes; `.env` syntax otherwise rejects
+them.
+
+**Do not add these to `render.yaml`.** A Blueprint sync overwrites whatever the
+Blueprint declares, so a value typed in the dashboard would revert on the next
+**Manual Sync**. Render leaves undeclared variables untouched, which is why this
+list lives in the dashboard only.
+
 ## Troubleshooting a failed deploy
 
 **"Exited with status 1 while building your code" — the build dies at `npm run build`**

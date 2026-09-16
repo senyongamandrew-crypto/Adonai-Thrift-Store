@@ -14,5 +14,12 @@
 
 import edge from 'edge.js'
 import { migrate } from 'edge.js/plugins/migrate'
+import siteSettings from '#services/site_settings'
 
 edge.use(migrate)
+
+/*
+| Shop details the owner can change from the hosting dashboard without editing
+| a file. Templates read them as "site.whatsappNumber", "site.heroHeadline", ...
+*/
+edge.global('site', siteSettings)

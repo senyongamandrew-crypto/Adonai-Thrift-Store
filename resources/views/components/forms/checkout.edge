@@ -12,7 +12,7 @@
           <input class="adonai-input" name="name" type="text" autocomplete="name" required placeholder="Your name" />
         </label>
         <label class="grid gap-2 text-xs font-bold text-adonai-ink">Phone
-          <input class="adonai-input" name="phone" type="tel" autocomplete="tel" required placeholder="+256 765 652 403" />
+          <input class="adonai-input" name="phone" type="tel" autocomplete="tel" required placeholder="{{ site.whatsappDisplay }}" />
         </label>
       </div>
       @inputError('name')
@@ -103,7 +103,7 @@
     </div>
     <div class="adonai-card p-5">
       <h2 class="text-sm font-extrabold text-adonai-ink">Need help now?</h2>
-      <p class="mt-3 text-sm leading-6 text-adonai-muted">Call <a class="font-bold text-adonai-primary" href="tel:+256748992964">+256748992964</a> or WhatsApp <a class="font-bold text-adonai-primary" href="https://wa.me/256765652403">+256765652403</a>.</p>
+      <p class="mt-3 text-sm leading-6 text-adonai-muted">Call <a class="font-bold text-adonai-primary" href="{{ site.callLink }}">{{ site.callNumber }}</a> or WhatsApp <a class="font-bold text-adonai-primary" href="{{ site.whatsappLink }}">{{ site.whatsappNumber }}</a>.</p>
     </div>
   </aside>
 </section>

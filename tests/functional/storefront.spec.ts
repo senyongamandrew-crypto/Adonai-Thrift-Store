@@ -14,6 +14,30 @@ test.group('Storefront', () => {
     response.assertTextIncludes('Adonai Thrift Store')
   })
 
+  /**
+   * The shop details below are rendered from app/services/site_settings.ts and
+   * are the values a shop owner can override from the hosting dashboard. These
+   * tests fail loudly if the "site" Edge global is ever dropped, which would
+   * leave blank spaces where the phone numbers belong.
+   */
+  test('renders the contact details from the storefront settings', async ({ client }) => {
+    const response = await client.get('/')
+
+    response.assertStatus(200)
+    response.assertTextIncludes('https://wa.me/256765652403')
+    response.assertTextIncludes('tel:+256748992964')
+    response.assertTextIncludes('+256765652403')
+    response.assertTextIncludes('Kampala delivery available')
+  })
+
+  test('hides the promo strip while no promotion is configured', async ({ client }) => {
+    const response = await client.get('/')
+
+    response.assertStatus(200)
+    response.assertTextIncludes('adonai-top-banner')
+    response.assertBodyNotContains('Store announcement')
+  })
+
   test('renders the legal pages', async ({ client }) => {
     const [privacy, terms] = await Promise.all([client.get('/privacy'), client.get('/terms')])
 

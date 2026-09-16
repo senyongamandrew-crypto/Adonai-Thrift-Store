@@ -33,6 +33,13 @@ services:
         value: Adonai Thrift Store
       - key: SESSION_DRIVER
         value: cookie
+      # The storefront wording (WHATSAPP_NUMBER, CALL_NUMBER, BANNER_TEXT,
+      # DELIVERY_NOTE, HERO_HEADLINE, PROMO_BANNER) is deliberately NOT declared
+      # here. A Blueprint sync overwrites whatever the Blueprint declares, so a
+      # value typed into the dashboard would silently revert on the next Manual
+      # Sync. Render leaves undeclared variables untouched, so these are set
+      # once in the dashboard (Environment -> Add from .env) and then owned by
+      # the shop owner. Defaults live in app/services/site_settings.ts.
       - key: DB_CONNECTION
         value: sqlite
       - key: ANALYTICS_PROVIDER

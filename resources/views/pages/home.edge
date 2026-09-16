@@ -5,14 +5,14 @@
   <div class="adonai-shell grid gap-10 py-12 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:py-20">
     <div>
       <p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">Adonai Thrift Store | Kampala</p>
-      <h1 class="mt-5 max-w-3xl text-4xl font-black leading-[1.02] tracking-[-.04em] text-adonai-ink sm:text-6xl">Handpicked Grade-A Thrift and Vintage Clothing in Kampala</h1>
+      <h1 class="mt-5 max-w-3xl text-4xl font-black leading-[1.02] tracking-[-.04em] text-adonai-ink sm:text-6xl">{{ site.heroHeadline }}</h1>
       <p class="mt-6 max-w-2xl text-base leading-7 text-adonai-muted">Shop cleaned, measured pieces from our local POS inventory. Prices are shown in UGX, and Kampala customers can check the item before confirming payment.</p>
       <div class="mt-8 flex flex-wrap gap-3">
         <a href="#collection" class="adonai-btn-primary">
           Browse available pieces
           <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6 6 6-6 6" /></svg>
         </a>
-        <a href="https://wa.me/256765652403" class="adonai-btn-secondary">
+        <a href="{{ site.whatsappLink }}" class="adonai-btn-secondary">
           WhatsApp the store
           <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6.5 4.5h3l1.5 4-2 1.5a14 14 0 0 0 5 5l1.5-2 4 1.5v3a1.5 1.5 0 0 1-1.5 1.5C11.37 19 5 12.63 5 4.5A1.5 1.5 0 0 1 6.5 3Z" /></svg>
         </a>
@@ -72,8 +72,8 @@
         <p class="text-sm font-extrabold text-adonai-primary">Our online catalog is being connected</p>
         <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-adonai-muted">Pieces are listed on the Adonai POS and will appear here shortly. In the meantime, message or call the store and we will tell you exactly what is available today.</p>
         <div class="mt-5 flex flex-wrap justify-center gap-3">
-          <a href="https://wa.me/256765652403" class="adonai-btn-primary !rounded-md !px-4 !py-2.5 text-xs">WhatsApp us on +256765652403</a>
-          <a href="tel:+256748992964" class="adonai-btn-secondary !rounded-md !px-4 !py-2.5 text-xs">Call +256748992964</a>
+          <a href="{{ site.whatsappLink }}" class="adonai-btn-primary !rounded-md !px-4 !py-2.5 text-xs">WhatsApp us on {{ site.whatsappNumber }}</a>
+          <a href="{{ site.callLink }}" class="adonai-btn-secondary !rounded-md !px-4 !py-2.5 text-xs">Call {{ site.callNumber }}</a>
         </div>
       </div>
     </div>
@@ -82,7 +82,7 @@
       <div>
         <p class="text-sm font-extrabold text-adonai-primary">The catalog is momentarily unavailable</p>
         <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-adonai-muted">Our store inventory service is not responding, so we are not showing an incomplete list. Please try again shortly, or contact the store for current stock.</p>
-        <a href="https://wa.me/256765652403" class="adonai-btn-secondary mt-5 !rounded-md !px-4 !py-2.5 text-xs">Ask about stock on WhatsApp</a>
+        <a href="{{ site.whatsappLink }}" class="adonai-btn-secondary mt-5 !rounded-md !px-4 !py-2.5 text-xs">Ask about stock on WhatsApp</a>
       </div>
     </div>
   @elseif(products && products.length)
@@ -101,7 +101,7 @@
       <div>
         <p class="text-sm font-extrabold text-adonai-primary">No available pieces are listed right now</p>
         <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-adonai-muted">Check again after the next inventory update or ask the store about current stock on WhatsApp.</p>
-        <a href="https://wa.me/256765652403" class="adonai-btn-secondary mt-5 !rounded-md !px-4 !py-2.5 text-xs">Ask about stock</a>
+        <a href="{{ site.whatsappLink }}" class="adonai-btn-secondary mt-5 !rounded-md !px-4 !py-2.5 text-xs">Ask about stock</a>
       </div>
     </div>
   @endif
@@ -110,7 +110,7 @@
 <section id="about" class="border-y border-adonai-line bg-adonai-canvas">
   <div class="adonai-shell grid gap-8 py-12 md:grid-cols-2 md:items-center md:py-16">
     <div><p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">How Adonai works</p><h2 class="mt-3 max-w-xl text-3xl font-black tracking-tight text-adonai-ink sm:text-4xl">Local stock, clear details, direct contact</h2></div>
-    <div class="grid gap-4 text-sm leading-6 text-adonai-muted"><p>Each item is checked, measured and entered into the store inventory before it is shown here.</p><p>For Kampala delivery, contact the store on <a href="tel:+256748992964" class="font-bold text-adonai-primary underline underline-offset-2">+256748992964</a> or WhatsApp <a href="https://wa.me/256765652403" class="font-bold text-adonai-primary underline underline-offset-2">+256765652403</a>.</p></div>
+    <div class="grid gap-4 text-sm leading-6 text-adonai-muted"><p>Each item is checked, measured and entered into the store inventory before it is shown here.</p><p>For Kampala delivery, contact the store on <a href="{{ site.callLink }}" class="font-bold text-adonai-primary underline underline-offset-2">{{ site.callNumber }}</a> or WhatsApp <a href="{{ site.whatsappLink }}" class="font-bold text-adonai-primary underline underline-offset-2">{{ site.whatsappNumber }}</a>.</p></div>
   </div>
 </section>
 @endsection
