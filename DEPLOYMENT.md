@@ -203,6 +203,32 @@ at boot, so a build is required before the server starts in production.
 
 ---
 
+## A control appears to do nothing: the cookie banner stays on screen
+
+Symptom: tapping **Accept** on the cookie banner leaves it visible, on every page.
+
+Tailwind ships `[hidden]:where(...) { display: none }` in its base layer. The
+banner's own class sets `display: flex`, and both selectors have the same
+specificity (0,1,0) — but the components layer is emitted later, so `flex` wins
+and the `hidden` attribute set by the script has no visual effect.
+
+`resources/css/app.css` therefore carries:
+
+```css
+.adonai-cookie-banner[hidden] {
+  display: none;
+}
+```
+
+The same trap applies to any element that combines a display-setting class with
+the `hidden` attribute. Elements toggled with the `hidden` **utility class**
+instead (search results, carousel slides) are unaffected, because utilities are
+emitted after components.
+
+`tests/unit/cookie_banner.spec.ts` fails if the guard or the attribute is
+removed, and both the cookie plus a localStorage mirror record the consent so the
+banner does not return when cookies are blocked (private mode, embedded preview).
+
 ## Changing the shop details without touching code
 
 The storefront wording is driven by environment variables, so the shop owner can

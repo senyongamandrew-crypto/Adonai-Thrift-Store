@@ -58,6 +58,20 @@
     @apply fixed inset-x-4 bottom-4 z-[60] flex items-center justify-between gap-4 rounded-lg border border-adonai-line bg-white p-4 shadow-card sm:inset-x-auto sm:right-6 sm:max-w-xl;
   }
 
+  /*
+  | The banner is hidden with the HTML "hidden" attribute, but the rule above
+  | sets "display: flex". Both have the same specificity (0,1,0), and this
+  | components layer is emitted after Tailwind's base layer, so the flex rule
+  | wins and the banner stayed on screen even after Accept was tapped.
+  |
+  | Matching the class together with the attribute (0,2,0) makes "hidden"
+  | authoritative again. Do not remove this rule while the banner keeps using
+  | the attribute.
+  */
+  .adonai-cookie-banner[hidden] {
+    display: none;
+  }
+
   .prose-adonai h2 {
     @apply mt-8 text-xl font-black tracking-tight text-adonai-ink;
   }

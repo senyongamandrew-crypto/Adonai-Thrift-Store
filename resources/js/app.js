@@ -61,17 +61,42 @@ function setupCookieBanner() {
   const banner = document.querySelector('[data-cookie-banner]')
   if (!banner) return
 
-  const accepted = document.cookie
+  if (!hasAcceptedConsent()) banner.hidden = false
+
+  banner.querySelector('[data-cookie-accept]')?.addEventListener('click', () => {
+    storeAcceptedConsent()
+    banner.hidden = true
+  })
+}
+
+/**
+ * Consent is remembered in a cookie, and mirrored into localStorage because
+ * cookies can be blocked outright (private browsing, embedded previews). The
+ * banner would otherwise reappear on every single page load.
+ */
+function hasAcceptedConsent() {
+  const inCookie = document.cookie
     .split('; ')
     .some((entry) => entry.startsWith(`${CONSENT_COOKIE}=accepted`))
 
-  if (!accepted) banner.hidden = false
+  if (inCookie) return true
 
-  banner.querySelector('[data-cookie-accept]')?.addEventListener('click', () => {
-    const secure = window.location.protocol === 'https:' ? '; Secure' : ''
-    document.cookie = `${CONSENT_COOKIE}=accepted; Max-Age=${CONSENT_MAX_AGE_SECONDS}; Path=/; SameSite=Lax${secure}`
-    banner.hidden = true
-  })
+  try {
+    return window.localStorage.getItem(CONSENT_COOKIE) === 'accepted'
+  } catch {
+    return false
+  }
+}
+
+function storeAcceptedConsent() {
+  const secure = window.location.protocol === 'https:' ? '; Secure' : ''
+  document.cookie = `${CONSENT_COOKIE}=accepted; Max-Age=${CONSENT_MAX_AGE_SECONDS}; Path=/; SameSite=Lax${secure}`
+
+  try {
+    window.localStorage.setItem(CONSENT_COOKIE, 'accepted')
+  } catch {
+    // Storage unavailable: the cookie written above remains the record.
+  }
 }
 
 /* -------------------------------------------------------------------------- */
