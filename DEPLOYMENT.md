@@ -258,6 +258,26 @@ The container port must match the port Render routes to. This image listens on
 `PORT` (declared as `10000` in both the `Dockerfile` and `render.yaml`). If you
 change one, change the other.
 
+**The service deploys, but the site is blank / every page returns 500**
+
+Check the logs for:
+
+```
+EdgeError: Missing manifest file. Make sure to first create a build
+   at .../resources/views/layouts/app.edge:36
+```
+
+`line 36` of the layout is the `@vite([...])` tag. The Vite service reads
+`config/vite.ts` -> `manifestFile` with plain `fs` calls, so a **relative** path
+is resolved against the process working directory, not the application root.
+That works locally (the app is usually started from the project root, where
+`public/vite` exists) but fails in the production container, which contains only
+the built output.
+
+`manifestFile` therefore uses `app.makePath(...)`, which resolves against the
+application root — in production the root is `build/`, where `ace build` copies
+`public/**` as a meta file. Keep that call if you edit the config.
+
 **Re-running a failed Blueprint sync**
 
 The Blueprint is linked to a branch. After pushing a fix, open the Blueprint in
