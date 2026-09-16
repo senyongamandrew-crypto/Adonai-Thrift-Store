@@ -27,8 +27,8 @@ export default await Env.create(APP_ROOT, {
   LOG_LEVEL: Env.schema.string(),
   APP_NAME: Env.schema.string(),
   APP_KEY: Env.schema.secret(),
-  APP_URL: Env.schema.string({ format: 'url', tld: false }),
-  SITE_URL: Env.schema.string({ format: 'url', tld: false }),
+  APP_URL: Env.schema.string.optional({ format: 'url', tld: false }),
+  SITE_URL: Env.schema.string.optional({ format: 'url', tld: false }),
   SESSION_DRIVER: Env.schema.enum(['cookie'] as const),
 
   /**
@@ -53,7 +53,12 @@ export default await Env.create(APP_ROOT, {
   | These values are server side only. They must never be rendered into a
   | page or a client-side JavaScript file.
   */
-  FLASK_API_BASE_URL: Env.schema.string({ format: 'url', tld: false }),
+  /**
+   * Private base URL of the Flask / POS backend. Optional: when it is not set
+   * the storefront still runs and explains that the catalog is not connected
+   * yet instead of failing. Server side only — never expose it to the browser.
+   */
+  FLASK_API_BASE_URL: Env.schema.string.optional({ format: 'url', tld: false }),
   FLASK_INTERNAL_API_TOKEN: Env.schema.string.optional(),
 
   /*

@@ -57,4 +57,39 @@ test.group('Storefront', () => {
     response.assertStatus(404)
     response.assertTextIncludes('This page is unavailable')
   })
+
+  test('keeps rendering the storefront while the store API is unreachable', async ({ client }) => {
+    const response = await client.get('/')
+
+    response.assertStatus(200)
+    response.assertTextIncludes('The catalog is momentarily unavailable')
+  })
+
+  test('reports the catalog state on the health probe', async ({ client }) => {
+    const response = await client.get('/healthz')
+
+    response.assertStatus(200)
+    response.assertBodyContains({ status: 'ok', catalog: 'unavailable' })
+  })
+
+  test('answers 503 instead of 404 for product pages during a catalog outage', async ({
+    client,
+  }) => {
+    const response = await client.get('/products/AD-101')
+
+    response.assertStatus(503)
+  })
+
+  test('derives the public site URL from the request when none is configured', async ({
+    client,
+  }) => {
+    const response = await client
+      .get('/')
+      .header('x-forwarded-proto', 'https')
+      .header('x-forwarded-host', 'adonaithrift.example')
+
+    response.assertStatus(200)
+    response.assertTextIncludes('<link rel="canonical" href="https://adonaithrift.example/"')
+    response.assertTextIncludes('https://adonaithrift.example/images/og/adonai-storefront.png')
+  })
 })

@@ -11,9 +11,38 @@ import {
 
 const categories = ['New in', 'Tops', 'Dresses', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories']
 
+type CatalogState = 'ok' | 'unavailable' | 'not_configured'
+
 export default class StorefrontController {
+  /**
+   * Whether the private store/POS API has been configured at all. The
+   * storefront runs fine without it, so this is not a hard requirement.
+   */
+  private isCatalogConfigured() {
+    return Boolean(env.get('FLASK_API_BASE_URL'))
+  }
+
+  /**
+   * Public address of the site, used for canonical links, sitemap.xml and the
+   * Open Graph/Twitter preview image.
+   *
+   * When SITE_URL/APP_URL are unset (or still point at localhost) the address
+   * is taken from the incoming request, so the deployed site produces correct
+   * links on any domain without configuration.
+   */
+  private siteUrl(request: HttpContext['request']) {
+    const configured = (env.get('SITE_URL') || env.get('APP_URL') || '').replace(/\/$/, '')
+    const isPlaceholder = !configured || /^https?:\/\/(localhost|127\.0\.0\.1)/.test(configured)
+    if (!isPlaceholder) return configured
+
+    const protocol =
+      request.header('x-forwarded-proto')?.split(',')[0]?.trim() || request.protocol() || 'http'
+    const host = request.header('x-forwarded-host')?.split(',')[0]?.trim() || request.host()
+    return `${protocol}://${host}`
+  }
+
   private sharedViewData(request: HttpContext['request'], canonicalPath?: string) {
-    const siteUrl = env.get('SITE_URL').replace(/\/$/, '')
+    const siteUrl = this.siteUrl(request)
     return {
       siteUrl,
       canonicalUrl: `${siteUrl}${canonicalPath || request.url()}`,
@@ -35,17 +64,22 @@ export default class StorefrontController {
       .slice(0, 120)
 
     /**
-     * The catalog belongs to the private POS backend. When that service cannot
-     * be reached, the storefront still renders — with an honest notice instead
-     * of an incomplete "sold out" catalog.
+     * The catalog belongs to the private POS backend. The page renders in
+     * three honest states: connected, temporarily unreachable, or not
+     * connected yet — never a misleading "sold out" list.
      */
     let products: EdgeProduct[] = []
-    let catalogUnavailable = false
-    try {
-      const catalog = await storefront.catalogService.availableProducts({ searchQuery })
-      products = catalog.map(storefront.catalogService.toEdgeProduct)
-    } catch {
-      catalogUnavailable = true
+    let catalogState: CatalogState = 'ok'
+
+    if (!this.isCatalogConfigured()) {
+      catalogState = 'not_configured'
+    } else {
+      try {
+        const catalog = await storefront.catalogService.availableProducts({ searchQuery })
+        products = catalog.map(storefront.catalogService.toEdgeProduct)
+      } catch {
+        catalogState = 'unavailable'
+      }
     }
 
     return view.render('pages/home', {
@@ -55,17 +89,22 @@ export default class StorefrontController {
         'Handpicked Grade-A thrift and vintage clothing in Kampala, with clear UGX prices and local delivery.',
       products,
       searchQuery,
-      catalogUnavailable,
+      catalogState,
       bagCount: 0,
     })
   }
 
   /**
    * Liveness and readiness probe for the hosting platform. Always answers 200
-   * so a POS catalog outage does not take the storefront container down.
+   * so a store API outage does not take the storefront container down.
    */
   async health(ctx: HttpContext) {
     const { response, storefront } = ctx as StorefrontHttpContext
+
+    if (!this.isCatalogConfigured()) {
+      return response.status(200).send({ status: 'ok', catalog: 'not_configured' })
+    }
+
     let catalog = 'ok'
     try {
       await storefront.catalogService.availableProducts({ searchQuery: '' })
@@ -77,6 +116,21 @@ export default class StorefrontController {
 
   async product(ctx: HttpContext) {
     const { params, request, response, view, storefront } = ctx as StorefrontHttpContext
+
+    /**
+     * Nothing is listed yet when the store API is not connected, so the item
+     * cannot exist. Answer 503 with an explanation rather than a bare 404.
+     */
+    if (!this.isCatalogConfigured()) {
+      response.status(503)
+      return view.render('pages/errors/server_error', {
+        ...this.sharedViewData(request),
+        pageTitle: 'Catalog coming soon · Adonai Thrift Store',
+        notice:
+          'Our online catalog is being connected. Call or WhatsApp the store and we will tell you what is available right now.',
+        noIndex: true,
+      })
+    }
 
     let product
     try {
@@ -207,19 +261,21 @@ export default class StorefrontController {
   }
 
   async sitemap(ctx: HttpContext) {
-    const { response, storefront } = ctx as StorefrontHttpContext
-    const siteUrl = env.get('SITE_URL').replace(/\/$/, '')
+    const { request, response, storefront } = ctx as StorefrontHttpContext
+    const siteUrl = this.siteUrl(request)
     const routes = ['/', '/privacy', '/terms', '/contact']
     let productRoutes: string[] = []
-    try {
-      const products = await storefront.catalogService.availableProducts({ searchQuery: '' })
-      productRoutes = products
-        .map(
-          (product) => `/products/${encodeURIComponent(String(product.id || product.sku || ''))}`
-        )
-        .filter((path) => !path.endsWith('/'))
-    } catch {
-      // Keep the legal/home sitemap available during a catalog outage.
+    if (this.isCatalogConfigured()) {
+      try {
+        const products = await storefront.catalogService.availableProducts({ searchQuery: '' })
+        productRoutes = products
+          .map(
+            (product) => `/products/${encodeURIComponent(String(product.id || product.sku || ''))}`
+          )
+          .filter((path) => !path.endsWith('/'))
+      } catch {
+        // Keep the legal/home sitemap available during a catalog outage.
+      }
     }
     const allRoutes = [...routes, ...productRoutes]
     const urls = allRoutes

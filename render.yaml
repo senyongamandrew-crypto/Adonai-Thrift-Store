@@ -1,18 +1,23 @@
 #
 # Render Blueprint for the Adonai Thrift Store storefront.
 #
-# 1. Push this repository to GitHub.
-# 2. In Render: New + > Blueprint, pick the repository and this branch.
-# 3. Fill in the "sync: false" values when Render asks for them.
+# Everything here is pre-filled so that deploying takes one click and no
+# typing: Render generates APP_KEY for you, and the storefront detects its own
+# public URL, so APP_URL / SITE_URL are optional.
 #
-# APP_KEY must be a base64 encoded 32 byte value. Generate one with:
-#   node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+# The only thing you may add later (Render Dashboard → your service →
+# Environment) is the private store API:
+#   FLASK_API_BASE_URL       = https://your-pos-api.example
+#   FLASK_INTERNAL_API_TOKEN = <token, if your store API needs one>
+# Until then the site runs normally and says the catalog is not connected yet.
 #
 services:
   - type: web
     name: adonai-thrift-store
     runtime: docker
     dockerfilePath: ./Dockerfile
+    plan: free
+    region: frankfurt
     healthCheckPath: /healthz
     autoDeploy: true
     envVars:
@@ -30,18 +35,11 @@ services:
         value: none
       - key: LOG_LEVEL
         value: info
-      # Set deliberately: Render terminates TLS and forwards x-forwarded-proto,
-      # so the app-level HTTPS redirect stays enabled.
+      # Render terminates TLS and forwards x-forwarded-proto, so the app-level
+      # HTTPS redirect stays on.
       - key: FORCE_HTTPS
         value: true
-      # Secrets / deployment specific values. Render prompts for these.
+      # Render generates a base64-encoded 256-bit value, which is exactly what
+      # AdonisJS expects for APP_KEY. No manual step needed.
       - key: APP_KEY
-        sync: false
-      - key: APP_URL
-        sync: false
-      - key: SITE_URL
-        sync: false
-      - key: FLASK_API_BASE_URL
-        sync: false
-      - key: FLASK_INTERNAL_API_TOKEN
-        sync: false
+        generateValue: true

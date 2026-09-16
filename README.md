@@ -4,6 +4,65 @@ The public storefront for **Adonai Thrift Store** (Wakiso, Kampala, Uganda):
 one-of-one thrift and vintage clothing, prices in **UGX**, Kampala delivery and
 Try & Confirm on eligible orders.
 
+---
+
+## Publish it (3 clicks, no technical setup)
+
+The site is ready to go online as-is. You do **not** need to install anything,
+set up a database, or type any secret values.
+
+1. Click this link:
+   **[Deploy Adonai Thrift Store →](https://dashboard.render.com/blueprint/new?repo=https://github.com/senyongamandrew-crypto/Adonai-Thrift-Store)**
+2. Sign in with GitHub if Render asks (free account, no card required for the
+   free plan).
+3. Press **Apply** / **Deploy**.
+
+Render builds the site, generates the secret key for you automatically, and gives
+you a live address such as `https://adonai-thrift-store.onrender.com`. Open it —
+that is your store.
+
+**Before you announce it**, one optional task: on that live page the catalog says
+*"Our online catalog is being connected"*. When your POS / store API is online,
+paste its address into Render (Dashboard → your service → **Environment** →
+`FLASK_API_BASE_URL`) and the products appear on their own. Until then the page
+invites visitors to WhatsApp or call the store, which is the honest state for a
+launch.
+
+Everything else — prices in UGX, Kampala delivery, Try & Confirm, the two phone
+numbers, the logo, the legal pages — is already in the site.
+
+### Prefer to keep it 100% free / on another host?
+
+- **Render free plan** is already configured (`plan: free` in `render.yaml`).
+- **Railway / Fly.io / any VPS:** see [DEPLOYMENT.md](./DEPLOYMENT.md) — every
+  option uses the same one `Dockerfile`.
+
+### Try it on your own computer first
+
+```bash
+npm ci
+npm run build
+npm run preview     # opens on http://localhost:3333
+```
+
+`npm run preview` works with no configuration file at all.
+
+---
+
+## What you get
+
+- **Home** with the live catalog from your POS inventory, or a friendly notice
+  when the catalog is not connected yet.
+- **Product pages** with gallery, sizes, colours and UGX prices.
+- **Customer accounts**, **contact form** and **checkout** wired to your store
+  API, with spam and duplicate-submission protection.
+- **Privacy** and **terms** pages, `robots.txt`, `sitemap.xml` for Google, and
+  Open Graph images so links look right when shared on WhatsApp or Facebook.
+- **Kampala details** throughout: `+256748992964`, WhatsApp `+256765652403`,
+  UGX pricing, delivery and Try & Confirm.
+
+## How it is built
+
 The storefront is an [AdonisJS 7](https://adonisjs.com) application that renders
 [Edge](https://edgejs.dev) views styled with Tailwind CSS. Catalog, accounts,
 orders and storefront events stay in the existing private Flask/POS backend —
@@ -13,6 +72,7 @@ this app only presents them and never stores a second copy.
 - All customer-facing product data comes from the POS API at runtime.
 - No password, payment secret or administrator credential is ever rendered into
   a page or a client-side bundle.
+
 
 ---
 
@@ -26,16 +86,29 @@ this app only presents them and never stores a second copy.
 
 ```bash
 npm ci
-cp .env.example .env           # then set APP_KEY, APP_URL, SITE_URL, FLASK_API_BASE_URL
-npm run build                  # compiles TypeScript + Vite/Tailwind assets
-node build/bin/server.js       # http://localhost:3333
+npm run preview                # http://localhost:3333 — no config needed
 ```
 
-`APP_KEY` must be a base64 encoded 32-byte value:
+With no `.env` at all, the site runs and reports the catalog as "not connected
+yet". Add a `.env` (copied from `.env.example`) when you want to point it at a
+store API:
+
+```bash
+cp .env.example .env           # then set FLASK_API_BASE_URL (and APP_KEY in production)
+npm run build
+node build/bin/server.js
+```
+
+`APP_KEY` must be a base64 encoded 32-byte value. It is only required for real
+deployments — `npm run preview` generates a throwaway one:
 
 ```bash
 node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
 ```
+
+`APP_URL`, `SITE_URL` and `FLASK_API_BASE_URL` are all optional. When the site
+URL is unset the address is taken from each request, so canonical links,
+`sitemap.xml` and Open Graph tags are correct on any domain automatically.
 
 ### Development
 
@@ -62,6 +135,19 @@ node ace test                  # Japa smoke tests (no backend required)
 | GET | `/privacy`, `/terms` | Legal pages |
 | GET | `/sitemap.xml` | Home, legal pages and available products |
 | GET | `/healthz` | Hosting health probe (also reports catalog reachability) |
+
+## Three catalog states
+
+The storefront never pretends. `GET /healthz` reports which one you are in:
+
+| State | When | What visitors see | `/healthz` |
+| --- | --- | --- | --- |
+| `not_configured` | `FLASK_API_BASE_URL` is empty | "Our online catalog is being connected" + WhatsApp/call buttons | `{"status":"ok","catalog":"not_configured"}` |
+| `ok` | Store API answers | The live POS catalog | `{"status":"ok","catalog":"ok"}` |
+| `unavailable` | Store API is down | "The catalog is momentarily unavailable", product URLs answer `503` | `{"status":"ok","catalog":"unavailable"}` |
+
+The process stays up and the rest of the site (contact, legal pages, account
+forms) keeps working in every state.
 
 ## Project structure
 

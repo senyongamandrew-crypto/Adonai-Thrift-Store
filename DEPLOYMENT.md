@@ -22,10 +22,10 @@ Nothing below needs a database: the storefront keeps no catalog of its own.
 | `PORT` | yes | `3333` locally; most hosts inject their own |
 | `APP_NAME` | yes | `Adonai Thrift Store` |
 | `APP_KEY` | yes | base64 of 32 random bytes — see below |
-| `APP_URL` | yes | public URL, e.g. `https://adonaithrift.example` |
-| `SITE_URL` | yes | usually the same as `APP_URL`; used for canonical links, `sitemap.xml` and Open Graph images |
+| `APP_URL` | optional | public URL, e.g. `https://adonaithrift.example`. Leave empty on a host and the address is taken from each request |
+| `SITE_URL` | optional | usually the same as `APP_URL`; used for canonical links, `sitemap.xml` and Open Graph images |
 | `SESSION_DRIVER` | yes | `cookie` |
-| `FLASK_API_BASE_URL` | yes | private base URL of the Flask/POS API |
+| `FLASK_API_BASE_URL` | optional | private base URL of the Flask/POS API. Without it the storefront runs and says the catalog is not connected yet |
 | `FLASK_INTERNAL_API_TOKEN` | optional | bearer token for the private boundary |
 | `DB_CONNECTION` | yes | `sqlite` (validated for compatibility; unused by the storefront) |
 | `ADONAI_MEDIA_*` | optional | media volume settings |
@@ -42,6 +42,17 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
 `.env` is gitignored — set these values in the hosting dashboard, not in Git.
 `.env.test` is committed on purpose: it contains only dummy values used by
 `npm test`.
+
+The application boots with **no `.env` file at all**, which is how hosting
+platforms run it. Only `NODE_ENV`, `HOST`, `PORT`, `APP_NAME`, `APP_KEY`,
+`SESSION_DRIVER`, `DB_CONNECTION`, `LOG_LEVEL` and `ANALYTICS_PROVIDER` are
+required; everything else has a sensible default or degrades gracefully.
+
+To run a production-style instance locally with generated defaults:
+
+```bash
+npm run preview          # or: PORT=8080 npm run preview
+```
 
 > Warning: keep `FLASK_API_BASE_URL` and `FLASK_INTERNAL_API_TOKEN` server side
 > only. They must never appear in a view, a JavaScript file or a public URL.
@@ -70,15 +81,30 @@ The image runs as a non-root user, and ships a `HEALTHCHECK` that calls
 
 ---
 
-## 3. Render (blueprint included)
+## 3. Render (blueprint included — nothing to type)
 
-1. Push this repository to GitHub.
-2. In Render choose **New + → Blueprint** and select the repository.
-   Render reads `render.yaml`.
-3. Fill in the values marked `sync: false` (`APP_KEY`, `APP_URL`, `SITE_URL`,
-   `FLASK_API_BASE_URL`, `FLASK_INTERNAL_API_TOKEN`).
-4. Deploy. Render builds the `Dockerfile`, waits for `/healthz`, and keeps
-   HTTPS redirects enabled (`FORCE_HTTPS=true`).
+1. Open the blueprint link (this is the same link as in the README):
+   **https://dashboard.render.com/blueprint/new?repo=https://github.com/senyongamandrew-crypto/Adonai-Thrift-Store**
+2. Sign in with GitHub and press **Apply** / **Deploy**.
+
+`render.yaml` is pre-filled, so Render never asks for a secret:
+`APP_KEY` is generated automatically (`generateValue: true`), the free plan is
+selected, `/healthz` is the health check, and `APP_URL` / `SITE_URL` are
+deliberately left unset so the site derives its own public URL from each
+request (correct canonical links, sitemap and Open Graph tags on the
+`*.onrender.com` address or on your own domain).
+
+**Later, when the store API is online** — Render Dashboard → your service →
+**Environment** → add:
+
+| Key | Value |
+| --- | --- |
+| `FLASK_API_BASE_URL` | `https://your-pos-api.example` |
+| `FLASK_INTERNAL_API_TOKEN` | your token, if the store API requires one |
+
+Save; Render redeploys and the catalog appears. Adding a custom domain is the
+same screen (**Settings → Custom Domain**); no app changes are needed because the
+site detects the domain it is served from.
 
 ## 4. Railway / Fly.io
 

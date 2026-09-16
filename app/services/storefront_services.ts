@@ -183,7 +183,7 @@ class FlaskStorefrontGateway {
   private readonly setCookies: string[] = []
 
   constructor(incomingCookie?: string) {
-    this.baseUrl = env.get('FLASK_API_BASE_URL').replace(/\/$/, '')
+    this.baseUrl = (env.get('FLASK_API_BASE_URL') || '').replace(/\/$/, '')
     this.internalToken = env.get('FLASK_INTERNAL_API_TOKEN')
     this.incomingCookie = incomingCookie
   }
@@ -197,6 +197,15 @@ class FlaskStorefrontGateway {
     path: string,
     options: RequestInit = {}
   ): Promise<T> {
+    /**
+     * The store API is optional. Without it the storefront stays up and simply
+     * reports the catalog as unavailable, so callers can handle this the same
+     * way they handle an outage.
+     */
+    if (!this.baseUrl) {
+      throw new StorefrontUnavailableError(new Error('FLASK_API_BASE_URL is not configured'))
+    }
+
     const headers = new Headers(options.headers)
     headers.set('Accept', 'application/json')
     if (options.body && !headers.has('Content-Type'))
