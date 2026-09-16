@@ -12,7 +12,14 @@ The site is ready to go online as-is. You do **not** need to install anything,
 set up a database, or type any secret values.
 
 1. Click this link:
-   **[Deploy Adonai Thrift Store →](https://dashboard.render.com/blueprint/new?repo=https://github.com/senyongamandrew-crypto/Adonai-Thrift-Store)**
+   **[Deploy Adonai Thrift Store →](https://render.com/deploy?repo=https://github.com/senyongamandrew-crypto/Adonai-Thrift-Store/tree/arena/01a0aaa3-adonai-thrift-store)**
+
+   [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/senyongamandrew-crypto/Adonai-Thrift-Store/tree/arena/01a0aaa3-adonai-thrift-store)
+
+   > The link ends in `/tree/arena/01a0aaa3-adonai-thrift-store` on purpose: that
+   > is the branch holding `render.yaml`. Once PR #1 is merged into `main`, the
+   > plain link below works instead:
+   > `https://render.com/deploy?repo=https://github.com/senyongamandrew-crypto/Adonai-Thrift-Store`
 2. Sign in with GitHub if Render asks (free account, no card required for the
    free plan).
 3. Press **Apply** / **Deploy**.

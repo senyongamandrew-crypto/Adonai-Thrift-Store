@@ -87,9 +87,12 @@ The image runs as a non-root user, and ships a `HEALTHCHECK` that calls
 
 ## 3. Render (blueprint included — nothing to type)
 
-1. Open the blueprint link (this is the same link as in the README):
-   **https://dashboard.render.com/blueprint/new?repo=https://github.com/senyongamandrew-crypto/Adonai-Thrift-Store**
-2. Sign in with GitHub and press **Apply** / **Deploy**.
+1. Open the deploy link (same as the README):
+   **https://render.com/deploy?repo=https://github.com/senyongamandrew-crypto/Adonai-Thrift-Store/tree/arena/01a0aaa3-adonai-thrift-store**
+   The `/tree/...` suffix tells Render which branch holds `render.yaml`. After
+   PR #1 is merged into `main` you can drop it and use:
+   `https://render.com/deploy?repo=https://github.com/senyongamandrew-crypto/Adonai-Thrift-Store`
+2. Sign in with GitHub and approve the deployment.
 
 `render.yaml` is pre-filled, so Render never asks for a secret:
 `APP_KEY` is generated automatically (`generateValue: true`), the free plan is
@@ -197,3 +200,27 @@ at boot, so a build is required before the server starts in production.
   arrives over plain HTTP cannot fail the deploy.
 - Account, contact and checkout submissions surface the backend error instead of
   pretending the order was captured.
+
+---
+
+## Troubleshooting a failed deploy
+
+**"Create web service ... Failed deploy" with an exit/health-check error**
+
+Check `GET /healthz` first. Render requires a `200` from the health check path;
+anything else (including a `3xx` redirect) marks the deploy as failed. The
+middleware in `app/middleware/force_https_middleware.ts` therefore always serves
+`/healthz` and only redirects when the request proves it arrived over plain HTTP.
+
+**The service logs "started HTTP server on 0.0.0.0:PORT" but Render says it is
+unreachable**
+
+The container port must match the port Render routes to. This image listens on
+`PORT` (declared as `10000` in both the `Dockerfile` and `render.yaml`). If you
+change one, change the other.
+
+**Re-running a failed Blueprint sync**
+
+The Blueprint is linked to a branch. After pushing a fix, open the Blueprint in
+the Render Dashboard and click **Manual Sync**, or open the service and click
+**Retry deploy**. Both rebuild from the latest commit on that branch.
