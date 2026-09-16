@@ -205,7 +205,23 @@ at boot, so a build is required before the server starts in production.
 
 ## Troubleshooting a failed deploy
 
-**"Create web service ... Failed deploy" with an exit/health-check error**
+**"Exited with status 1 while building your code" — the build dies at `npm run build`**
+
+Almost always this: hosting platforms pass your service's environment variables
+into the image build, so `NODE_ENV=production` is visible while `npm ci` runs.
+npm then silently omits **devDependencies**, which is where the build toolchain
+lives (vite, tailwindcss, TypeScript, the ace CLI). The build fails with
+`ERR_MODULE_NOT_FOUND` and a bare `exit code 1`.
+
+The `Dockerfile` guards against this with `ENV NODE_ENV=development` and
+`npm ci --include=dev` in the build stage, while the runtime stage still runs as
+`NODE_ENV=production`. Keep both flags if you edit that file.
+
+Behind the same error, `--nodedir=/usr/local` stops `node-gyp` from needing to
+download Node's C headers from `nodejs.org` (blocked on some networks) when the
+native `better-sqlite3` module compiles.
+
+**"Create web service ... Failed deploy" with a health-check error**
 
 Check `GET /healthz` first. Render requires a `200` from the health check path;
 anything else (including a `3xx` redirect) marks the deploy as failed. The

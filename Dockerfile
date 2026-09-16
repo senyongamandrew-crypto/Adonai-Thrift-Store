@@ -20,13 +20,33 @@ FROM node:24-bookworm-slim AS build
 
 WORKDIR /app
 
+#
+# Keep this stage in development mode.
+#
+# Hosting platforms (Render included) pass your service's environment variables
+# into the image build. When NODE_ENV=production is visible, "npm ci" silently
+# skips devDependencies — and the build toolchain (vite, tailwindcss, tsc, the
+# ace CLI) lives there. The build then dies with ERR_MODULE_NOT_FOUND and a
+# bare "exit code 1". Declaring development here, plus --include=dev below,
+# keeps the toolchain available no matter what the platform injects.
+#
+ENV NODE_ENV=development
+
 # Toolchain for native modules that have no prebuilt binary for this platform.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends python3 make g++ ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+#
+# --include=dev   : install the build toolchain even if NODE_ENV=production
+#                   is injected into the build.
+# --nodedir=/usr/local : the official Node image ships its C headers at
+#                   /usr/local/include/node. Pointing node-gyp at them keeps the
+#                   native module (better-sqlite3) compiling without downloading
+#                   headers from nodejs.org, which is blocked on some networks.
+#
+RUN npm ci --include=dev --nodedir=/usr/local --no-audit --no-fund
 
 COPY . .
 RUN npm run build
