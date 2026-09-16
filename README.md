@@ -79,6 +79,8 @@ this app only presents them and never stores a second copy.
 - All customer-facing product data comes from the POS API at runtime.
 - No password, payment secret or administrator credential is ever rendered into
   a page or a client-side bundle.
+- The storefront itself stores nothing: it has no database and ships no SQLite
+  driver, which keeps its Docker build free of native compilation.
 
 
 ---

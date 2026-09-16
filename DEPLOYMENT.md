@@ -217,9 +217,18 @@ The `Dockerfile` guards against this with `ENV NODE_ENV=development` and
 `npm ci --include=dev` in the build stage, while the runtime stage still runs as
 `NODE_ENV=production`. Keep both flags if you edit that file.
 
-Behind the same error, `--nodedir=/usr/local` stops `node-gyp` from needing to
-download Node's C headers from `nodejs.org` (blocked on some networks) when the
-native `better-sqlite3` module compiles.
+The build stage also installs **no C/C++ toolchain**. The storefront keeps no
+database of its own, so `@adonisjs/lucid` and `better-sqlite3` were removed from
+`package.json`: nothing imported them, there was no `config/database.ts`, and the
+Lucid provider was never registered. Dropping them removed the only step that
+compiled C++ during the image build — the slowest, most memory-hungry part, and a
+common cause of failures on a 512 MB free instance. `npm ci` now performs zero
+`node-gyp` runs.
+
+If a future dependency does need compiling, restore the toolchain in the build
+stage (the commented block in the `Dockerfile`) and pass `--nodedir=/usr/local`
+to `npm ci`, so node-gyp uses the headers already inside the Node image instead
+of downloading them from `nodejs.org`.
 
 **"Create web service ... Failed deploy" with a health-check error**
 

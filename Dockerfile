@@ -32,21 +32,20 @@ WORKDIR /app
 #
 ENV NODE_ENV=development
 
-# Toolchain for native modules that have no prebuilt binary for this platform.
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 make g++ ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
-
+#
+# No C/C++ toolchain is installed on purpose: the storefront keeps no database
+# and every dependency ships a prebuilt binary, so nothing is compiled during
+# the install. That keeps the build fast and independent of apt mirrors.
+#
+# If a dependency ever needs compiling, add this before "npm ci" and pass
+# --nodedir=/usr/local to it (Node's headers live at /usr/local/include/node in
+# this image, so node-gyp never has to download them from nodejs.org):
+#
+#   RUN apt-get update && apt-get install -y --no-install-recommends \
+#         python3 make g++ ca-certificates && rm -rf /var/lib/apt/lists/*
+#
 COPY package.json package-lock.json ./
-#
-# --include=dev   : install the build toolchain even if NODE_ENV=production
-#                   is injected into the build.
-# --nodedir=/usr/local : the official Node image ships its C headers at
-#                   /usr/local/include/node. Pointing node-gyp at them keeps the
-#                   native module (better-sqlite3) compiling without downloading
-#                   headers from nodejs.org, which is blocked on some networks.
-#
-RUN npm ci --include=dev --nodedir=/usr/local --no-audit --no-fund
+RUN npm ci --include=dev --no-audit --no-fund
 
 COPY . .
 RUN npm run build
