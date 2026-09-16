@@ -1,3 +1,4 @@
+import env from '#start/env'
 import { defineConfig } from '@adonisjs/shield'
 
 export default defineConfig({
@@ -13,7 +14,12 @@ export default defineConfig({
     includeSubDomains: true,
   },
   xFrame: {
-    enabled: true,
+    /**
+     * Clickjacking protection is on by default. Preview environments (which
+     * render the app inside an iframe) can opt out with
+     * ALLOW_FRAME_EMBEDDING=true — never enable that on the public domain.
+     */
+    enabled: env.get('ALLOW_FRAME_EMBEDDING') !== true,
     action: 'DENY',
   },
   contentTypeSniffing: {

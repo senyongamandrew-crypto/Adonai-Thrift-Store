@@ -38,6 +38,13 @@ export default await Env.create(APP_ROOT, {
    */
   FORCE_HTTPS: Env.schema.boolean.optional(),
 
+  /**
+   * Drop the X-Frame-Options: DENY header so the storefront can be embedded in
+   * an iframe. Only for preview/sandbox environments — leave it off in
+   * production so clickjacking stays blocked.
+   */
+  ALLOW_FRAME_EMBEDDING: Env.schema.boolean.optional(),
+
   /*
   |--------------------------------------------------------------------------
   | Private storefront API boundary (Flask / POS backend)
