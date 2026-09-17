@@ -264,6 +264,14 @@
     @endeach
   </div>
 
+  {{--
+    The search box filters the pieces already on the page. This line is where the
+    result of that filtering is reported, and it is a live region so a customer
+    using a screen reader hears the count instead of being left guessing. It stays
+    empty until a search is typed.
+  --}}
+  <p class="mt-4 min-h-5 text-xs font-bold text-adonai-muted" data-search-status role="status" aria-live="polite"></p>
+
   @if(catalogState === 'not_configured')
     <div class="adonai-card mt-8 grid min-h-64 place-items-center p-8 text-center">
       <div>

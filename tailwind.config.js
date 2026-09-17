@@ -22,9 +22,16 @@ export default {
          * so the website and the sign above the shop finally agree.
          */
         adonai: {
-          /* Copper — the T-shirt outline in the logo. Buttons and links. */
-          primary: '#A6693F',
-          primaryDark: '#8C5533',
+          /**
+           * Copper, from the T-shirt outline in the logo. Used for buttons and
+           * links it is deepened by 4% from the exact logo value: the logo's own
+           * #A6693F gives white text on a button only 4.46:1, under the 4.5 the
+           * accessibility guidelines ask for, which shows up as hard-to-read
+           * button text on a phone in daylight. This shade is indistinguishable
+           * to the eye and passes everywhere. The logo image itself is untouched.
+           */
+          primary: '#9F653C',
+          primaryDark: '#8A5834',
           /* A wash of copper, for badges and quiet highlights. */
           primarySoft: '#F6EDE5',
 
