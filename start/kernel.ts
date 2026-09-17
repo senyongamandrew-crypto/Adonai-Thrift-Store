@@ -17,6 +17,12 @@ server.errorHandler(() => import('#exceptions/handler'))
 
 server.use([
   () => import('#middleware/force_https_middleware'),
+  /**
+   * The API answers the shop's Android app as well as the website, so the
+   * cross-origin headers have to be decided before the router runs: a browser
+   * asking permission for a write never reaches a route.
+   */
+  () => import('#middleware/api_cors_middleware'),
   () => import('@adonisjs/static/static_middleware'),
   () => import('@adonisjs/vite/vite_middleware'),
 ])

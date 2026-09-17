@@ -203,6 +203,57 @@ at boot, so a build is required before the server starts in production.
 
 ---
 
+## Connecting the phone till
+
+The Android till (`com.adonai.pos`) keeps working offline, then uploads through
+this service. Point it at the site and the two stay in step.
+
+1. Open the till's **Admin Suite**.
+2. Go to **Workspace & team → Shared server connection**.
+3. In **POS server URL**, type your site address exactly, with no trailing slash:
+   `https://adonai-thrift-store-hqg3.onrender.com`
+4. Tap **Test connection**. It asks for `GET /api/health` and expects JSON back.
+5. Enter the shop PIN when the till asks — the same PIN as the intake screen.
+
+Never type `localhost` or `127.0.0.1` into the till: those mean *the phone
+itself*, which is why they always fail.
+
+### If the till says "Failed to fetch"
+
+Check in this order, because the message is the same for all of them:
+
+1. **Is the site awake?** On the free plan the service sleeps after fifteen idle
+   minutes and takes about a minute to wake. Open the website in a browser first.
+2. **Is the address exactly right?** `https`, no trailing slash, no `/pos` on the
+   end.
+3. **Does the PIN match?** Set `ADMIN_PIN` in the dashboard, or leave it unset and
+   use `7890`.
+
+The phone cannot show more than that — it has no console. The website's own
+`/api/health` is the same check made from somewhere you can see the answer.
+
+### What the phone can and cannot do
+
+| The till does this | This service |
+| --- | --- |
+| Adds, edits and deletes stock | Writes it to the shared catalogue; the website updates at once |
+| Marks a piece sold | Hides it from customers, keeps it in your records |
+| Uploads product photos from the camera | Stores them under `ADONAI_MEDIA_DIR` and serves them at `/media/...` |
+| Records orders and customer details | Keeps them on the server; **they are never published** |
+| Assigns a driver and saves GPS | Stores the last position and serves the delivery dashboard |
+| Prints receipts and tags | Done entirely on the phone |
+
+Two things to know about the free plan:
+
+- **Photos do not survive a restart**, because they live on the temporary disk
+  and are too large to snapshot. The catalogue itself does survive, and a listing
+  whose photo has gone is shown without a picture rather than as a broken image.
+  Pasting a photo link into the intake screen avoids this, and so does the paid
+  plan with a disk.
+- **Orders and customer details are never snapshotted.** They contain personal
+  information about your customers, so they stay on the server. Download them from
+  the intake screen if you need a copy.
+
 ## Listing pieces: the shop intake screen
 
 The storefront and the catalogue live in the same service, so there is no second

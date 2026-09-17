@@ -14,7 +14,8 @@ export default defineConfig({
      * each entry against the route pattern with an exact match, so an entry
      * like "/api/*" would silently never match anything.
      */
-    exceptRoutes: (ctx) => ctx.request.url().startsWith('/api/'),
+    exceptRoutes: (ctx) =>
+      ctx.request.url().startsWith('/api/') || ctx.request.url().startsWith('/media/'),
     enableXsrfCookie: true,
     methods: ['POST', 'PUT', 'PATCH', 'DELETE'],
   },

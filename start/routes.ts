@@ -19,6 +19,8 @@ const PosApiController = () => import('#controllers/pos_api_controller')
 
 router.get('/', [StorefrontController, 'home']).as('shop')
 router.get('/products/:id', [StorefrontController, 'product']).as('product')
+/* Where a customer lands after checking out. */
+router.get('/orders/:id', [StorefrontController, 'order']).as('order')
 router.get('/privacy', [StorefrontController, 'privacy']).as('privacy')
 router.get('/terms', [StorefrontController, 'terms']).as('terms')
 router.get('/sitemap.xml', [StorefrontController, 'sitemap']).as('sitemap')
@@ -60,12 +62,52 @@ router.post('/shop/intake/restore', [AdminController, 'restore']).as('intake.res
 |--------------------------------------------------------------------------
 */
 router.get('/api/health', [PosApiController, 'health'])
+
+/* The catalogue, in both vocabularies: the website's and the POS's. */
 router.get('/api/products', [PosApiController, 'products'])
 router.get('/api/products/:id', [PosApiController, 'product'])
 router.post('/api/products', [PosApiController, 'createProduct'])
 router.put('/api/products/:id', [PosApiController, 'updateProduct'])
 router.delete('/api/products/:id', [PosApiController, 'deleteProduct'])
-router.post('/api/orders', [PosApiController, 'createOrder'])
+
+router.get('/api/catalog', [PosApiController, 'catalog'])
+router.get('/api/pos/catalog', [PosApiController, 'posCatalog'])
+router.post('/api/pos/catalog', [PosApiController, 'savePosCatalog'])
+router.post('/api/pos/catalog/delete', [PosApiController, 'deletePosCatalog'])
+
+/*
+  |--------------------------------------------------------------------------
+  | The routes the shop's Android till calls
+  |--------------------------------------------------------------------------
+  | These names come from the POS application itself. Keeping them means the
+  | phone works against this service unchanged, instead of the shop having to
+  | run a second server.
+  */
+router.post('/api/pos/admin/session', [PosApiController, 'adminSession'])
+router.post('/api/pos/orders', [PosApiController, 'createOrder']).as('pos.orders.create')
+router.post('/api/pos/reset', [PosApiController, 'resetWorkspace'])
+
+router.get('/api/orders', [PosApiController, 'listOrders']).as('orders.list')
+router.post('/api/orders', [PosApiController, 'createOrder']).as('orders.create')
+router.post('/api/orders/assign-driver', [PosApiController, 'assignDriver'])
+
+router.post('/api/catalog/hold', [PosApiController, 'holdCatalogItem'])
+router.post('/api/catalog/release', [PosApiController, 'releaseCatalogItem'])
+
+router.post('/api/customers', [PosApiController, 'upsertCustomer'])
+router.post('/api/storefront-events', [PosApiController, 'storefrontEvent'])
+router.get('/api/admin/customer-tracking', [PosApiController, 'customerTracking'])
+
+router.get('/api/deliveries/active', [PosApiController, 'activeDeliveries'])
+router.get('/api/drivers', [PosApiController, 'drivers']).as('drivers.list')
+router.post('/api/drivers', [PosApiController, 'drivers']).as('drivers.create')
+router.post('/api/driver/location', [PosApiController, 'driverLocation'])
+
+router.post('/api/media/upload', [PosApiController, 'uploadMedia'])
+router.get('/api/media', [PosApiController, 'listMedia'])
+router.post('/api/media/delete', [PosApiController, 'deleteMedia'])
+router.get('/media/:key', [PosApiController, 'serveMedia'])
+
 router.post('/api/contact', [PosApiController, 'contact'])
 
 router.any('*', [StorefrontController, 'notFound'])

@@ -38,6 +38,10 @@ services:
       # setting the owner edits, so declaring it here is safe.
       - key: ADONAI_DATA_DIR
         value: /app/storage/data
+      # Where product photos from the phone are kept. Also outside build/, for
+      # the same reason.
+      - key: ADONAI_MEDIA_DIR
+        value: /app/storage/media
       # The storefront wording (WHATSAPP_NUMBER, CALL_NUMBER, BANNER_TEXT,
       # DELIVERY_NOTE, HERO_HEADLINE, PROMO_BANNER) is deliberately NOT declared
       # here. A Blueprint sync overwrites whatever the Blueprint declares, so a

@@ -21,9 +21,8 @@ import {
   pinMatchesConfigured,
   usingDefaultPin,
 } from '#services/shop_pin'
+import { PIN_SESSION_KEY, sessionSignedIn } from '#services/shop_session'
 import { getBuiltInCatalogue } from '#services/storefront_services'
-
-const PIN_SESSION_KEY = 'adonai_shop_pin_ok'
 
 export default class AdminController {
   private store() {
@@ -31,7 +30,7 @@ export default class AdminController {
   }
 
   private isSignedIn(ctx: HttpContext): boolean {
-    return Boolean(ctx.session.get(PIN_SESSION_KEY))
+    return sessionSignedIn(ctx)
   }
 
   private markSignedIn(ctx: HttpContext) {

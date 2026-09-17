@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import type { StorefrontHttpContext } from '#middleware/storefront_services_middleware'
 import type { EdgeProduct } from '#services/storefront_services'
+import { getBuiltInCatalogue } from '#services/storefront_services'
 import env from '#start/env'
 import {
   StorefrontAccountsUnavailableError,
@@ -274,6 +275,74 @@ export default class StorefrontController {
     const order = await storefront.orderService.createFromCheckout(payload)
     storefront.forwardSessionCookies(response)
     return response.redirect().toPath(`/orders/${order.id}`)
+  }
+
+  /**
+   * The page a customer lands on after checking out. Without it the confirmation
+   * redirect led to the "page not found" screen, which is a worrying thing to see
+   * after placing an order.
+   */
+  async order(ctx: HttpContext) {
+    const { request, response, view } = ctx as StorefrontHttpContext
+    const store = getBuiltInCatalogue()
+    const order = store?.findOrder(
+      String((ctx as unknown as { params: { id: string } }).params.id || '')
+    )
+
+    if (!order) {
+      response.status(404)
+      return view.render('errors/not-found', {
+        ...this.sharedViewData(request),
+        pageTitle: 'Order not found · Adonai Thrift Store',
+      })
+    }
+
+    /**
+     * Prices and names are looked up from the catalogue so the confirmation
+     * shows what was ordered even though the order only stored identifiers.
+     */
+    const details = (order.details ?? {}) as Record<string, unknown>
+    const requested = Array.isArray(details.items) ? details.items : []
+    const lines = requested.map((entry) => {
+      const item = (entry || {}) as Record<string, unknown>
+      const product = store.findProduct(String(item.productId || ''))
+      const quantity = Number(item.quantity) || 1
+      const price = product?.price ?? null
+      return {
+        name: product?.name || 'A piece from the shop',
+        quantity,
+        priceLabel: price === null ? 'Price on request' : `UGX ${price.toLocaleString('en-US')}`,
+        lineTotalLabel: price === null ? '' : `UGX ${(price * quantity).toLocaleString('en-US')}`,
+      }
+    })
+
+    const total = lines.reduce((sum, line) => {
+      const value = Number(line.lineTotalLabel.replace(/[^0-9]/g, ''))
+      return sum + (Number.isFinite(value) ? value : 0)
+    }, 0)
+
+    const customer = order.customer as Record<string, unknown>
+    const statusLabels: Record<string, string> = {
+      received: 'Received',
+      dispatched: 'On the way',
+      delivered: 'Delivered',
+      cancelled: 'Cancelled',
+    }
+
+    return view.render('pages/order', {
+      ...this.sharedViewData(request, `/orders/${order.id}`),
+      pageTitle: `Order ${order.id} · Adonai Thrift Store`,
+      noIndex: true,
+      order: {
+        id: order.id,
+        statusLabel: statusLabels[order.status] || 'Received',
+        customerName: String(customer?.name || ''),
+        customerPhone: String(customer?.phone || ''),
+        paymentMethod: details.paymentMethod ? String(details.paymentMethod) : '',
+        totalLabel: total > 0 ? `UGX ${total.toLocaleString('en-US')}` : '',
+        lines,
+      },
+    })
   }
 
   async privacy(ctx: HttpContext) {

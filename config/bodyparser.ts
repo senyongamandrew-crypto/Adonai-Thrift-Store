@@ -58,6 +58,13 @@ const bodyParserConfig = defineConfig({
       'application/json-patch+json',
       'application/vnd.api+json',
       'application/csp-report',
+      /**
+       * A phone app that posts JSON without naming a content type sends it as
+       * "text/plain". Without this entry the request arrives with an empty
+       * body, which looks like a silent failure on the device. Browser forms
+       * always declare their own type, so nothing else is affected.
+       */
+      'text/plain',
     ],
   },
 

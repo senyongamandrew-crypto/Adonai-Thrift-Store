@@ -129,6 +129,30 @@ npm run lint                   # eslint
 node ace test                  # Japa smoke tests (no backend required)
 ```
 
+## The shop's Android till
+
+The Adonai Thrift Store POS (package `com.adonai.pos`) was built to talk to a
+shared API. That API is this service, so the till points straight at the site and
+needs nothing else running.
+
+- **Address** — the site address, e.g. `https://adonai-thrift-store-hqg3.onrender.com`
+  (Admin Suite → Workspace & team → Shared server connection). Never `localhost`,
+  which would mean the phone itself.
+- **PIN** — the same shop PIN as the intake screen (`ADMIN_PIN`, default `7890`).
+  The phone trades it for a twelve-hour session token.
+- **Where the routes come from** — the phone's own expectations are documented in
+  its technical guide; the ones it calls are `/api/health`, `/api/pos/catalog`,
+  `/api/pos/catalog/delete`, `/api/pos/admin/session`, `/api/orders`, the delivery
+  routes and `/api/media/upload`. They are all served here, next to the website.
+- **Field names** — the till says "title", "sku", "bin", "status"; the website
+  says "name", "size", "available". `app/services/pos_sync.ts` translates between
+  the two, and keeps any field it does not recognise so nothing the shop typed is
+  lost on the way through.
+- **CORS** — a WebView reports its origin as the literal string `null`, so
+  `app/middleware/api_cors_middleware.ts` answers the permission request the
+  browser makes before it will send anything. Without it the phone reports
+  "Failed to fetch" even when the server is answering correctly.
+
 ## Listing pieces without a second system
 
 The storefront reads its catalogue from the POS API. That API now ships inside
