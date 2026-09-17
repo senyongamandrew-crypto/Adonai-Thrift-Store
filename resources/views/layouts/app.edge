@@ -38,7 +38,14 @@
   <body data-bag-count="{{ bagCount || 0 }}">
     @include('components/top_banner')
 
-    <header class="sticky top-11 z-40 border-b border-adonai-line bg-adonai-canvas">
+    {{--
+      The header scrolls away with the page rather than following the customer
+      down it. On a phone it carries the logo, the buttons and the search box,
+      which is a lot of a small screen; pinning it there would leave less room
+      for the clothes, which is what people came to look at. The search box is
+      still one short scroll up, and the bag is linked again in the footer.
+    --}}
+    <header class="border-b border-adonai-line bg-adonai-canvas">
       <div class="adonai-shell flex min-h-20 items-center justify-between gap-4 py-3 sm:min-h-24 sm:py-4">
         <a href="/" class="flex shrink-0 items-center" aria-label="Adonai Thrift Store home">
           <img src="/assets/primary-logo-light.png" alt="Adonai Thrift Store logo" class="h-16 w-auto object-contain mix-blend-multiply sm:h-20" />
