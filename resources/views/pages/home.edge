@@ -1,68 +1,266 @@
 @layout('layouts/app')
 
 @section('content')
-<section class="border-b border-adonai-line bg-white">
-  <div class="adonai-shell grid gap-10 py-12 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:py-20">
+{{--
+  The home page is arranged the way a shop window is: the best piece first, then
+  the promises, then the aisles, then the newest stock, then everything.
+
+  Every section below is built only from what the shop itself entered in the POS.
+  Nothing is invented: no countdown, no "only 3 left", no discount that the price
+  does not actually show. When a section has nothing true to show, it is left out.
+--}}
+
+{{-- ============================================================ the hero --}}
+<section class="adonai-hero">
+  <div class="adonai-shell grid gap-10 py-12 lg:grid-cols-[1.02fr_.98fr] lg:items-center lg:py-20">
     <div>
-      <p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">Adonai Thrift Store | Kampala</p>
-      <h1 class="mt-5 max-w-3xl text-4xl font-black leading-[1.02] tracking-[-.04em] text-adonai-ink sm:text-6xl">{{ site.heroHeadline }}</h1>
-      <p class="mt-6 max-w-2xl text-base leading-7 text-adonai-muted">Shop cleaned, measured pieces from our local POS inventory. Prices are shown in UGX, and Kampala customers can check the item before confirming payment.</p>
+      <p class="adonai-hero-badge">
+        <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5 14.6 9l6 .9-4.3 4.2 1 6-5.3-2.8L6.7 20l1-6L3.4 9.9l6-.9Z" /></svg>
+        Every piece is one of a kind
+      </p>
+
+      <h1 class="mt-5 max-w-2xl text-4xl font-black leading-[1.03] tracking-[-.035em] text-white sm:text-6xl">
+        {{ site.heroHeadline }}
+      </h1>
+
+      <p class="mt-6 max-w-xl text-base leading-7 text-adonai-sandStrong">
+        Cleaned, measured and listed from our own stock in Kampala. Prices in UGX.
+        When a piece is sold there is no second one — so if you like it, ask about it.
+      </p>
+
       <div class="mt-8 flex flex-wrap gap-3">
-        <a href="#collection" class="adonai-btn-primary">
-          Browse available pieces
-          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6 6 6-6 6" /></svg>
+        <a href="#collection" class="adonai-hero-button">
+          Explore the collection
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6 6 6-6 6" /></svg>
         </a>
-        <a href="{{ site.whatsappLink }}" class="adonai-btn-secondary">
-          WhatsApp the store
+        <a href="{{ site.whatsappLink }}" class="adonai-hero-button-quiet">
           <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6.5 4.5h3l1.5 4-2 1.5a14 14 0 0 0 5 5l1.5-2 4 1.5v3a1.5 1.5 0 0 1-1.5 1.5C11.37 19 5 12.63 5 4.5A1.5 1.5 0 0 1 6.5 3Z" /></svg>
+          Ask about a piece
         </a>
       </div>
-      <dl class="mt-10 grid max-w-2xl gap-3 sm:grid-cols-3">
-        <div class="rounded-lg border border-adonai-line bg-adonai-canvas p-4"><dt class="text-xs font-extrabold text-adonai-primary">Local service</dt><dd class="mt-1 text-xs leading-5 text-adonai-muted">Kampala delivery and direct store contact</dd></div>
-        <div class="rounded-lg border border-adonai-line bg-adonai-canvas p-4"><dt class="text-xs font-extrabold text-adonai-primary">Clear pricing</dt><dd class="mt-1 text-xs leading-5 text-adonai-muted">UGX price shown before you order</dd></div>
-        <div class="rounded-lg border border-adonai-line bg-adonai-canvas p-4"><dt class="text-xs font-extrabold text-adonai-primary">Try and Confirm</dt><dd class="mt-1 text-xs leading-5 text-adonai-muted">Check the item before confirming payment</dd></div>
-      </dl>
     </div>
 
     <div class="mx-auto w-full max-w-md">
-      <div class="aspect-[4/5] overflow-hidden rounded-lg border border-adonai-line bg-adonai-skeleton">
-        @if(products && products.length && products[0].image)
+      <div class="aspect-[4/5] overflow-hidden rounded-lg border border-white/10 bg-adonai-night">
+        @if(heroPiece && heroPiece.image)
           <picture class="block h-full w-full">
-            @if(products[0].imageAvif)
-              <source srcset="{{ products[0].imageAvif }}" type="image/avif" />
+            @if(heroPiece.imageAvif)
+              <source srcset="{{ heroPiece.imageAvif }}" type="image/avif" />
             @endif
-            @if(products[0].imageWebp)
-              <source srcset="{{ products[0].imageWebp }}" type="image/webp" />
+            @if(heroPiece.imageWebp)
+              <source srcset="{{ heroPiece.imageWebp }}" type="image/webp" />
             @endif
-            <img src="{{ products[0].image }}" alt="{{ products[0].name || 'Adonai Thrift Store product' }}" class="h-full w-full object-cover" loading="eager" decoding="async" />
+            <img src="{{ heroPiece.image }}" alt="{{ heroPiece.name || 'Adonai Thrift Store piece' }}" class="h-full w-full object-cover" loading="eager" decoding="async" />
           </picture>
         @else
-          <div class="adonai-photo-skeleton" role="img" aria-label="Product photography will appear when an available item is listed">
+          <div class="adonai-photo-skeleton" role="img" aria-label="A photo of the newest piece will appear here">
             <span class="h-3 w-2/5 rounded-sm bg-adonai-skeletonDark"></span>
             <span class="h-3 w-3/5 rounded-sm bg-adonai-skeletonDark"></span>
             <span class="h-3 w-1/3 rounded-sm bg-adonai-skeletonDark"></span>
           </div>
         @endif
       </div>
-      <p class="mt-3 text-xs leading-5 text-adonai-muted">Product photography is taken from the available Adonai POS inventory. No stock image is used when a listing has no photo.</p>
+      @if(heroPiece && heroPiece.image)
+        <p class="mt-3 text-xs leading-5 text-adonai-sandStrong/80">
+          Just in: <a href="/products/{{ heroPiece.id }}" class="font-bold text-white underline underline-offset-2">{{ heroPiece.name }}</a> — {{ heroPiece.priceFormatted }}
+        </p>
+      @endif
     </div>
   </div>
 </section>
 
-<section class="adonai-shell py-12 sm:py-16" id="collection">
-  <div class="flex flex-col justify-between gap-5 border-b border-adonai-line pb-6 sm:flex-row sm:items-end">
-    <div>
-      <p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">Available from Adonai POS</p>
-      <h2 class="mt-2 text-3xl font-black tracking-tight text-adonai-ink sm:text-4xl">Clothing listed with the details you need</h2>
-      <p class="mt-3 max-w-2xl text-sm leading-6 text-adonai-muted">Browse the current catalog by name, category, size or condition. Availability changes when an item is sold in the store.</p>
+{{-- ==================================================== the four promises --}}
+<section class="border-b border-adonai-line bg-adonai-canvas">
+  <div class="adonai-shell grid gap-3 py-8 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="adonai-trust-item">
+      <span class="adonai-trust-icon">
+        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5 19 6v5.5c0 4.2-2.9 7.3-7 9-4.1-1.7-7-4.8-7-9V6Z" /><path stroke-linecap="round" stroke-linejoin="round" d="m9 12 2 2 4-4" /></svg>
+      </span>
+      <div>
+        <p class="text-sm font-bold text-adonai-ink">Checked and measured</p>
+        <p class="mt-1 text-xs leading-5 text-adonai-muted">Each piece is inspected and its size written down before it is listed.</p>
+      </div>
     </div>
-    <span class="text-xs font-bold text-adonai-muted">Kampala service area</span>
+
+    <div class="adonai-trust-item">
+      <span class="adonai-trust-icon">
+        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7.5h16v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5Z" /><path stroke-linecap="round" stroke-linejoin="round" d="m8.5 12 2.5 2.5L16 9" /></svg>
+      </span>
+      <div>
+        <p class="text-sm font-bold text-adonai-ink">Try before you pay</p>
+        <p class="mt-1 text-xs leading-5 text-adonai-muted">Check the piece when it reaches you, then confirm.</p>
+      </div>
+    </div>
+
+    <div class="adonai-trust-item">
+      <span class="adonai-trust-icon">
+        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.5 7.5h10v9h-10ZM13.5 11h4l3 3v2.5h-7Z" /><circle cx="7" cy="18" r="1.6" /><circle cx="17" cy="18" r="1.6" /></svg>
+      </span>
+      <div>
+        <p class="text-sm font-bold text-adonai-ink">Kampala delivery</p>
+        <p class="mt-1 text-xs leading-5 text-adonai-muted">{{ site.deliveryNote }}.</p>
+      </div>
+    </div>
+
+    <div class="adonai-trust-item">
+      <span class="adonai-trust-icon">
+        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6.5 4.5h3l1.5 4-2 1.5a14 14 0 0 0 5 5l1.5-2 4 1.5v3a1.5 1.5 0 0 1-1.5 1.5C11.37 19 5 12.63 5 4.5A1.5 1.5 0 0 1 6.5 3Z" /></svg>
+      </span>
+      <div>
+        <p class="text-sm font-bold text-adonai-ink">A real person answers</p>
+        <p class="mt-1 text-xs leading-5 text-adonai-muted">Call or message the shop directly — not a call centre.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{-- ==================================================== shop by category --}}
+@if(catalogState === 'ok' && products && products.length)
+  <section class="adonai-shell py-12 sm:py-16">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">Browse the shop</p>
+        <h2 class="mt-2 text-3xl font-black tracking-tight text-adonai-ink sm:text-4xl">Shop by category</h2>
+      </div>
+      <a href="#collection" class="text-sm font-bold text-adonai-primary underline underline-offset-4">See everything</a>
+    </div>
+
+    <div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      @each(tile in categoryTiles)
+        <a class="adonai-tile" href="/?category={{ tile.name }}#collection">
+          <div class="adonai-tile-photo">
+            @if(tile.image)
+              <img src="{{ tile.image }}" alt="{{ tile.name }}" class="h-full w-full object-cover" loading="lazy" decoding="async" />
+            @else
+              <div class="grid h-full w-full place-items-center">
+                <svg viewBox="0 0 24 24" class="h-7 w-7 text-adonai-primary/40" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8.5 12 4l8 4.5-8 4.5ZM4 8.5V16l8 4.5M20 8.5V16l-8 4.5" /></svg>
+              </div>
+            @endif
+          </div>
+          <div class="p-3">
+            <p class="text-sm font-bold text-adonai-ink">{{ tile.name }}</p>
+            <p class="mt-0.5 text-xs text-adonai-muted">
+              @if(tile.count)
+                {{ tile.count }} {{ tile.count === 1 ? 'piece' : 'pieces' }}
+              @else
+                Nothing in stock
+              @endif
+            </p>
+          </div>
+        </a>
+      @endeach
+    </div>
+  </section>
+@endif
+
+{{-- ============================================== the piece to lead with --}}
+@if(featuredPiece)
+  <section class="border-y border-adonai-line bg-adonai-sand">
+    <div class="adonai-shell grid gap-8 py-12 lg:grid-cols-[.85fr_1.15fr] lg:items-center">
+      <div>
+        <p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">Piece of the day</p>
+        <h2 class="mt-3 text-3xl font-black leading-tight tracking-tight text-adonai-ink sm:text-4xl">
+          Only one of these exists.
+        </h2>
+        <p class="mt-4 max-w-md text-sm leading-6 text-adonai-muted">
+          When it is gone it does not come back in another size or colour. This is what is on the rail today.
+        </p>
+        <a href="/products/{{ featuredPiece.id }}" class="adonai-btn-primary mt-6">
+          See this piece
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6 6 6-6 6" /></svg>
+        </a>
+      </div>
+
+      <div class="grid gap-5 rounded-lg border border-adonai-line bg-white p-4 shadow-card sm:grid-cols-[.9fr_1.1fr] sm:items-center sm:p-5">
+        <div class="aspect-square overflow-hidden rounded-md bg-adonai-skeleton">
+          @if(featuredPiece.image)
+            <img src="{{ featuredPiece.image }}" alt="{{ featuredPiece.name }}" class="h-full w-full object-cover" loading="lazy" decoding="async" />
+          @else
+            <div class="adonai-photo-skeleton" role="img" aria-label="No photo for this piece yet">
+              <span class="h-3 w-2/5 rounded-sm bg-adonai-skeletonDark"></span>
+              <span class="h-3 w-3/5 rounded-sm bg-adonai-skeletonDark"></span>
+            </div>
+          @endif
+        </div>
+        <div>
+          <p class="text-[10px] font-extrabold uppercase tracking-[.14em] text-adonai-primary">{{ featuredPiece.category }}</p>
+          <h3 class="mt-1.5 text-lg font-bold leading-snug text-adonai-ink">{{ featuredPiece.name }}</h3>
+          <div class="mt-3 flex items-baseline gap-3">
+            <p class="text-2xl font-black text-adonai-ink">{{ featuredPiece.priceFormatted }}</p>
+            @if(featuredPiece.originalPriceFormatted)
+              <p class="text-sm text-adonai-muted line-through">{{ featuredPiece.originalPriceFormatted }}</p>
+            @endif
+          </div>
+          @if(featuredPiece.size || featuredPiece.condition)
+            <p class="mt-3 text-xs text-adonai-muted">
+              @if(featuredPiece.size)
+                Size {{ featuredPiece.size }}
+              @endif
+              @if(featuredPiece.size && featuredPiece.condition)
+                ·
+              @endif
+              @if(featuredPiece.condition)
+                {{ featuredPiece.condition }}
+              @endif
+            </p>
+          @endif
+          <p class="mt-4 text-xs font-bold text-adonai-sage">In stock · one available</p>
+        </div>
+      </div>
+    </div>
+  </section>
+@endif
+
+{{-- ====================================================== new arrivals --}}
+@if(catalogState === 'ok' && newArrivals && newArrivals.length)
+  <section class="adonai-shell py-12 sm:py-16">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">Fresh off the rail</p>
+        <h2 class="mt-2 text-3xl font-black tracking-tight text-adonai-ink sm:text-4xl">New arrivals</h2>
+      </div>
+      <a href="#collection" class="text-sm font-bold text-adonai-primary underline underline-offset-4">View all</a>
+    </div>
+
+    <div class="mt-6 grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4">
+      @each(product in newArrivals)
+        @include('components/product_card')
+      @endeach
+    </div>
+  </section>
+@endif
+
+{{-- ================================================== the whole collection --}}
+<section class="adonai-shell pb-12 sm:pb-16" id="collection">
+  <div class="flex flex-col justify-between gap-4 border-b border-adonai-line pb-6 sm:flex-row sm:items-end">
+    <div>
+      <p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">Everything in the shop</p>
+      <h2 class="mt-2 text-3xl font-black tracking-tight text-adonai-ink sm:text-4xl">
+        @if(activeCategory)
+          {{ activeCategory }}
+        @elseif(searchQuery)
+          Results for "{{ searchQuery }}"
+        @else
+          All available pieces
+        @endif
+      </h2>
+      <p class="mt-3 max-w-2xl text-sm leading-6 text-adonai-muted">
+        @if(filteredByCategory)
+          {{ products.length }} {{ products.length === 1 ? 'piece matches' : 'pieces match' }}.
+          <a class="font-bold text-adonai-primary underline underline-offset-2" href="/#collection">Show everything</a>
+        @else
+          Availability changes the moment a piece is sold in the store, so the list is always today's stock.
+        @endif
+      </p>
+    </div>
+    <span class="shrink-0 text-xs font-bold text-adonai-muted">Serving Kampala</span>
   </div>
 
+  {{-- Category filters: real links, so they work with or without JavaScript. --}}
   <div class="mt-6 flex gap-2 overflow-x-auto pb-2">
-    <a class="adonai-filter adonai-filter-active whitespace-nowrap" href="#collection">All pieces</a>
+    <a class="adonai-filter {{ !activeCategory ? 'adonai-filter-active' : '' }} whitespace-nowrap" href="/#collection">All pieces</a>
     @each(category in categories)
-      <a class="adonai-filter whitespace-nowrap" href="#collection">{{ category }}</a>
+      <a class="adonai-filter {{ activeCategory === category ? 'adonai-filter-active' : '' }} whitespace-nowrap" href="/?category={{ category }}#collection">{{ category }}</a>
     @endeach
   </div>
 
@@ -86,7 +284,7 @@
       </div>
     </div>
   @elseif(products && products.length)
-    <div class="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3" data-product-grid>
+    <div class="mt-8 grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4" data-product-grid>
       @each(product in products)
         @include('components/product_card')
       @endeach
@@ -95,6 +293,24 @@
       <p class="text-sm font-extrabold text-adonai-primary">No matching item</p>
       <h3 class="mt-2 text-2xl font-black text-adonai-ink">Try another search</h3>
       <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-adonai-muted">Search by item name, category, size or condition, or contact the store for help.</p>
+    </div>
+  @elseif(filteredByCategory)
+    <div class="adonai-card mt-8 grid min-h-56 place-items-center p-8 text-center">
+      <div>
+        <p class="text-sm font-extrabold text-adonai-primary">Nothing listed here right now</p>
+        <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-adonai-muted">
+          @if(activeCategory)
+            We have no {{ activeCategory }} in stock today.
+          @else
+            Nothing matches that search today.
+          @endif
+          Stock changes often — ask us and we will tell you what has just arrived.
+        </p>
+        <div class="mt-5 flex flex-wrap justify-center gap-3">
+          <a href="/#collection" class="adonai-btn-secondary !rounded-md !px-4 !py-2.5 text-xs">See everything</a>
+          <a href="{{ site.whatsappLink }}" class="adonai-btn-primary !rounded-md !px-4 !py-2.5 text-xs">Ask about stock</a>
+        </div>
+      </div>
     </div>
   @else
     <div class="adonai-card mt-8 grid min-h-64 place-items-center p-8 text-center">
@@ -107,10 +323,36 @@
   @endif
 </section>
 
-<section id="about" class="border-y border-adonai-line bg-adonai-canvas">
+{{-- ================================================= how the shop works --}}
+<section id="about" class="border-t border-adonai-line bg-adonai-sand">
   <div class="adonai-shell grid gap-8 py-12 md:grid-cols-2 md:items-center md:py-16">
-    <div><p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">How Adonai works</p><h2 class="mt-3 max-w-xl text-3xl font-black tracking-tight text-adonai-ink sm:text-4xl">Local stock, clear details, direct contact</h2></div>
-    <div class="grid gap-4 text-sm leading-6 text-adonai-muted"><p>Each item is checked, measured and entered into the store inventory before it is shown here.</p><p>For Kampala delivery, contact the store on <a href="{{ site.callLink }}" class="font-bold text-adonai-primary underline underline-offset-2">{{ site.callNumber }}</a> or WhatsApp <a href="{{ site.whatsappLink }}" class="font-bold text-adonai-primary underline underline-offset-2">{{ site.whatsappNumber }}</a>.</p></div>
+    <div>
+      <p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">How Adonai works</p>
+      <h2 class="mt-3 max-w-xl text-3xl font-black tracking-tight text-adonai-ink sm:text-4xl">Local stock, clear details, direct contact</h2>
+    </div>
+    <div class="grid gap-4 text-sm leading-6 text-adonai-muted">
+      <p>Each item is checked, measured and entered into the store inventory before it is shown here. Nothing is bought in bulk and nothing is restocked, so what you see is genuinely what is on the rail.</p>
+      <p>For Kampala delivery, contact the store on <a href="{{ site.callLink }}" class="font-bold text-adonai-primary underline underline-offset-2">{{ site.callNumber }}</a> or WhatsApp <a href="{{ site.whatsappLink }}" class="font-bold text-adonai-primary underline underline-offset-2">{{ site.whatsappNumber }}</a>.</p>
+    </div>
+  </div>
+</section>
+
+{{-- ======================================================= closing band --}}
+<section class="adonai-callout">
+  <div class="adonai-shell grid gap-6 py-10 lg:grid-cols-[1.15fr_.85fr] lg:items-center">
+    <div>
+      <h2 class="text-2xl font-black tracking-tight text-white sm:text-3xl">Hear about new pieces first</h2>
+      <p class="mt-2 max-w-lg text-sm leading-6 text-adonai-canvas/90">
+        Every item is a single piece. Send us a message and we will show you what has just arrived — no newsletter, just a reply.
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-3 lg:justify-end">
+      <a href="{{ site.whatsappLink }}" class="adonai-btn-primary">
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6.5 4.5h3l1.5 4-2 1.5a14 14 0 0 0 5 5l1.5-2 4 1.5v3a1.5 1.5 0 0 1-1.5 1.5C11.37 19 5 12.63 5 4.5A1.5 1.5 0 0 1 6.5 3Z" /></svg>
+        Message us on WhatsApp
+      </a>
+      <a href="{{ site.callLink }}" class="adonai-hero-button-quiet">Call {{ site.callNumber }}</a>
+    </div>
   </div>
 </section>
 @endsection

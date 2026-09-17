@@ -103,11 +103,19 @@ function storeAcceptedConsent() {
 /* Catalog search                                                              */
 /* -------------------------------------------------------------------------- */
 
-function setupSearch() {
-  const forms = queryAll('[data-adonai-search-form]')
-  const inputs = queryAll('[data-adonai-search-input]')
-  const cards = queryAll('[data-product-card]')
-  if (!forms.length) return
+  function setupSearch() {
+    const forms = queryAll('[data-adonai-search-form]')
+    const inputs = queryAll('[data-adonai-search-input]')
+
+    /**
+     * The home page shows a few curated rows above the full collection. Searching
+     * narrows the full collection; the curated rows are there to be browsed, so
+     * they are left alone. Pages without a main grid filter every card.
+     */
+    const gridCards = queryAll('[data-product-grid] [data-product-card]')
+    const cards = gridCards.length ? gridCards : queryAll('[data-product-card]')
+
+    if (!forms.length) return
 
   const emptyState = document.querySelector('[data-search-empty]')
   const status = document.querySelector('[data-search-status]')
@@ -211,7 +219,7 @@ function selectOption(element, group) {
   queryAll(`[data-option-group="${group}"]`).forEach((option) => {
     const isActive = option === element
     option.classList.toggle('border-adonai-primary', isActive)
-    option.classList.toggle('bg-adonai-lavender', isActive)
+    option.classList.toggle('bg-adonai-sand', isActive)
     option.setAttribute('aria-pressed', isActive ? 'true' : 'false')
   })
 }

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#6C5CE7" />
+    <meta name="theme-color" content="#A6693F" />
     <meta name="description" content="{{ metaDescription || 'Handpicked Grade-A thrift and vintage clothing in Kampala, with clear UGX prices and local delivery.' }}" />
     <meta name="robots" content="{{ noIndex ? 'noindex,nofollow' : 'index,follow' }}" />
     <link rel="canonical" href="{{ canonicalUrl || '/' }}" />
@@ -44,23 +44,24 @@
           <img src="/assets/primary-logo-light.png" alt="Adonai Thrift Store logo" class="h-16 w-auto object-contain mix-blend-multiply sm:h-20" />
         </a>
 
-        <nav class="hidden items-center gap-5 text-sm font-semibold text-adonai-muted lg:flex" aria-label="Main navigation">
-          <a class="transition-colors hover:text-adonai-primary" href="/#collection">Shop all</a>
-          <a class="transition-colors hover:text-adonai-primary" href="/#collection">New in</a>
-          <a class="transition-colors hover:text-adonai-primary" href="/#collection">Tops</a>
-          <a class="transition-colors hover:text-adonai-primary" href="/#collection">Dresses</a>
-          <a class="transition-colors hover:text-adonai-primary" href="/#about">About Adonai</a>
-        </nav>
+          <nav class="hidden items-center gap-5 text-sm font-semibold text-adonai-muted lg:flex" aria-label="Main navigation">
+            <a class="transition-colors hover:text-adonai-primary" href="/#collection">Shop all</a>
+            @each(navCategory in categories)
+              <a class="transition-colors hover:text-adonai-primary" href="/?category={{ navCategory }}#collection">{{ navCategory }}</a>
+            @endeach
+            <a class="transition-colors hover:text-adonai-primary" href="/#about">About Adonai</a>
+          </nav>
 
-        <div class="flex items-center gap-2">
-          <a href="/account/sign-in" class="grid h-10 w-10 place-items-center rounded-md border border-adonai-line bg-white text-adonai-ink transition-colors hover:border-adonai-primary hover:text-adonai-primary" aria-label="Customer account">
-            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M18 20a6 6 0 0 0-12 0M12 14a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" /></svg>
-          </a>
-          <a href="/#bag" class="adonai-btn-primary !rounded-md !px-4 !py-2.5" aria-label="Shopping bag">
-            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 8.5h14l-1 11H6l-1-11ZM9 8.5V6a3 3 0 0 1 6 0v2.5" /></svg>
-            <span>Bag</span><span id="adonai-bag-count" class="grid min-w-5 place-items-center rounded-md bg-white/20 px-1.5">{{ bagCount || 0 }}</span>
-          </a>
-        </div>
+          <div class="flex items-center gap-2">
+            <a href="/account/sign-in" class="grid h-10 w-10 place-items-center rounded-md border border-adonai-line bg-white text-adonai-ink transition-colors hover:border-adonai-primary hover:text-adonai-primary" aria-label="Customer account">
+              <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M18 20a6 6 0 0 0-12 0M12 14a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" /></svg>
+            </a>
+            <a href="/#collection" class="hidden rounded-md bg-adonai-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-adonai-primaryDark md:inline-flex">Shop now</a>
+            <a href="/#bag" class="adonai-btn-primary !rounded-md !px-4 !py-2.5" aria-label="Shopping bag">
+              <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 8.5h14l-1 11H6l-1-11ZM9 8.5V6a3 3 0 0 1 6 0v2.5" /></svg>
+              <span>Bag</span><span id="adonai-bag-count" class="grid min-w-5 place-items-center rounded-md bg-white/20 px-1.5">{{ bagCount || 0 }}</span>
+            </a>
+          </div>
       </div>
       <div class="border-t border-adonai-line bg-white">
         <div class="adonai-shell flex py-3">
@@ -75,17 +76,52 @@
 
     @include('components/cookie_banner')
 
-    <footer id="bag" class="mt-16 border-t border-adonai-line bg-white">
-      <div class="adonai-shell grid gap-8 py-10 md:grid-cols-[1.2fr_.8fr_.8fr]">
-        <div>
-          <p class="text-lg font-extrabold tracking-tight">Adonai Thrift Store</p>
-          <p class="mt-3 max-w-sm text-sm leading-6 text-adonai-muted">Handpicked Grade-A thrift and vintage clothing in Kampala. Items are cleaned, measured and listed from our POS inventory.</p>
-          <p class="mt-4 text-xs font-semibold text-adonai-muted">Wakiso Kampala Uganda</p>
+      <footer id="bag" class="mt-16 border-t border-adonai-line bg-white">
+        <div class="adonai-shell grid gap-8 py-12 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.1fr]">
+          <div>
+            <img src="/assets/primary-logo-light.png" alt="Adonai Thrift Store" class="h-14 w-auto object-contain mix-blend-multiply" />
+            <p class="mt-4 max-w-xs text-sm leading-6 text-adonai-muted">Handpicked Grade-A thrift and vintage clothing in Kampala. Every item is cleaned, measured and listed from our own stock — one piece at a time.</p>
+            <p class="mt-4 text-xs font-semibold text-adonai-muted">Wakiso Kampala Uganda</p>
+          </div>
+
+          <div>
+            <h2 class="text-xs font-extrabold uppercase tracking-[.16em] text-adonai-ink">Shop</h2>
+            <div class="mt-4 grid gap-2 text-sm text-adonai-muted">
+              <a class="transition-colors hover:text-adonai-primary" href="/#collection">All available pieces</a>
+              @each(footerCategory in categories)
+                <a class="transition-colors hover:text-adonai-primary" href="/?category={{ footerCategory }}#collection">{{ footerCategory }}</a>
+              @endeach
+            </div>
+          </div>
+
+          <div>
+            <h2 class="text-xs font-extrabold uppercase tracking-[.16em] text-adonai-ink">Help</h2>
+            <div class="mt-4 grid gap-2 text-sm text-adonai-muted">
+              <a class="transition-colors hover:text-adonai-primary" href="/contact">Contact us</a>
+              <a class="transition-colors hover:text-adonai-primary" href="/checkout">Delivery &amp; payment</a>
+              <a class="transition-colors hover:text-adonai-primary" href="/account/sign-in">Your account</a>
+              <a class="transition-colors hover:text-adonai-primary" href="/privacy">Privacy policy</a>
+              <a class="transition-colors hover:text-adonai-primary" href="/terms">Terms and conditions</a>
+            </div>
+          </div>
+
+          <div>
+            <h2 class="text-xs font-extrabold uppercase tracking-[.16em] text-adonai-ink">Talk to us</h2>
+            <div class="mt-4 grid gap-2 text-sm text-adonai-muted">
+              <a class="transition-colors hover:text-adonai-primary" href="{{ site.whatsappLink }}">WhatsApp {{ site.whatsappDisplay }}</a>
+              <a class="transition-colors hover:text-adonai-primary" href="{{ site.callLink }}">Call {{ site.callDisplay }}</a>
+              <span>{{ site.deliveryNote }}</span>
+              <span>Prices in UGX</span>
+            </div>
+          </div>
         </div>
-        <div><h2 class="text-xs font-extrabold uppercase tracking-[.16em] text-adonai-ink">Shop</h2><div class="mt-4 grid gap-2 text-sm text-adonai-muted"><a class="transition-colors hover:text-adonai-primary" href="/#collection">Available pieces</a><a class="transition-colors hover:text-adonai-primary" href="/contact">Contact us</a><a class="transition-colors hover:text-adonai-primary" href="/privacy">Privacy policy</a><a class="transition-colors hover:text-adonai-primary" href="/terms">Terms and conditions</a></div></div>
-        <div><h2 class="text-xs font-extrabold uppercase tracking-[.16em] text-adonai-ink">Talk to us</h2><div class="mt-4 grid gap-2 text-sm text-adonai-muted"><a class="transition-colors hover:text-adonai-primary" href="{{ site.whatsappLink }}">WhatsApp {{ site.whatsappDisplay }}</a><a class="transition-colors hover:text-adonai-primary" href="{{ site.callLink }}">Call {{ site.callDisplay }}</a><span>UGX prices, Kampala delivery</span></div></div>
-      </div>
-      <div class="border-t border-adonai-line"><div class="adonai-shell flex flex-col gap-2 py-5 text-xs text-adonai-muted sm:flex-row sm:items-center sm:justify-between"><span>© {{ new Date().getFullYear() }} Adonai Thrift Store.</span><span>Wakiso Kampala Uganda</span></div></div>
-    </footer>
+
+        <div class="border-t border-adonai-line">
+          <div class="adonai-shell flex flex-col gap-2 py-5 text-xs text-adonai-muted sm:flex-row sm:items-center sm:justify-between">
+            <span>© {{ new Date().getFullYear() }} Adonai Thrift Store.</span>
+            <span>Wakiso Kampala Uganda</span>
+          </div>
+        </div>
+      </footer>
   </body>
 </html>

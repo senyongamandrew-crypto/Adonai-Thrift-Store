@@ -18,17 +18,17 @@
 
   {{-- --------------------------------------------------------------- notices --}}
   @if(added)
-    <div role="status" class="rounded-lg border border-adonai-primary/30 bg-adonai-lavender p-4 text-sm font-semibold text-adonai-ink">Added. It is on the website now.</div>
+    <div role="status" class="rounded-lg border border-adonai-primary/30 bg-adonai-sand p-4 text-sm font-semibold text-adonai-ink">Added. It is on the website now.</div>
   @elseif(saved)
-    <div role="status" class="rounded-lg border border-adonai-primary/30 bg-adonai-lavender p-4 text-sm font-semibold text-adonai-ink">Saved.</div>
+    <div role="status" class="rounded-lg border border-adonai-primary/30 bg-adonai-sand p-4 text-sm font-semibold text-adonai-ink">Saved.</div>
   @elseif(removed)
-    <div role="status" class="rounded-lg border border-adonai-primary/30 bg-adonai-lavender p-4 text-sm font-semibold text-adonai-ink">Removed from the catalogue.</div>
+    <div role="status" class="rounded-lg border border-adonai-primary/30 bg-adonai-sand p-4 text-sm font-semibold text-adonai-ink">Removed from the catalogue.</div>
   @elseif(restored)
-    <div role="status" class="rounded-lg border border-adonai-primary/30 bg-adonai-lavender p-4 text-sm font-semibold text-adonai-ink">Backup restored — {{ restored }} pieces.</div>
+    <div role="status" class="rounded-lg border border-adonai-primary/30 bg-adonai-sand p-4 text-sm font-semibold text-adonai-ink">Backup restored — {{ restored }} pieces.</div>
   @endif
 
   @flashMessage('error')
-    <div role="alert" class="rounded-lg border border-adonai-primary/30 bg-adonai-lavender p-4 text-sm font-semibold text-adonai-ink">{{ $message }}</div>
+    <div role="alert" class="rounded-lg border border-adonai-primary/30 bg-adonai-sand p-4 text-sm font-semibold text-adonai-ink">{{ $message }}</div>
   @end
 
   @if(usingDefaultPin)
@@ -157,7 +157,7 @@
           </p>
         </div>
 
-        <span class="rounded-full px-3 py-1 text-[11px] font-extrabold {{ product.available ? 'bg-adonai-lavender text-adonai-primary' : 'bg-adonai-canvas text-adonai-muted' }}">
+        <span class="rounded-full px-3 py-1 text-[11px] font-extrabold {{ product.available ? 'bg-adonai-sand text-adonai-primary' : 'bg-adonai-canvas text-adonai-muted' }}">
           {{ product.available ? 'Available' : 'Sold' }}
         </span>
 

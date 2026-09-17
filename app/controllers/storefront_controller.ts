@@ -14,7 +14,23 @@ import {
   signUpValidator,
 } from '#validators/storefront'
 
-const categories = ['New in', 'Tops', 'Dresses', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories']
+const categories = ['Tops', 'Dresses', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories']
+
+/**
+ * Choose the piece the home page leads with, and only when the shop's own data
+ * gives it a reason to be there: it is marked new, or it carries a real previous
+ * price. Returns null when no piece qualifies, and the section is then left out
+ * entirely rather than dressed up with urgency the shop does not have.
+ */
+function pickFeaturedPiece(products: EdgeProduct[]): EdgeProduct | null {
+  if (products.length === 0) return null
+  return (
+    products.find((product) => product.newArrival && product.image) ||
+    products.find((product) => product.originalPriceFormatted) ||
+    products.find((product) => product.image) ||
+    null
+  )
+}
 
 type CatalogState = 'ok' | 'unavailable' | 'not_configured'
 
@@ -77,25 +93,47 @@ export default class StorefrontController {
     const searchQuery = String(request.input('q') || '')
       .trim()
       .slice(0, 120)
+    const activeCategory = String(request.input('category') || '')
+      .trim()
+      .slice(0, 60)
 
     /**
      * The catalog belongs to the private POS backend. The page renders in
      * three honest states: connected, temporarily unreachable, or not
      * connected yet — never a misleading "sold out" list.
      */
-    let products: EdgeProduct[] = []
+    let catalogue: EdgeProduct[] = []
     let catalogState: CatalogState = 'ok'
 
     if (!this.isCatalogConfigured()) {
       catalogState = 'not_configured'
     } else {
       try {
-        const catalog = await storefront.catalogService.availableProducts({ searchQuery })
-        products = catalog.map(storefront.catalogService.toEdgeProduct)
+        /**
+         * The whole available catalogue is fetched once, then arranged for the
+         * page. One request instead of one per section, and every section is
+         * built from the same list, so they can never disagree with each other.
+         */
+        const catalog = await storefront.catalogService.availableProducts({ searchQuery: '' })
+        catalogue = catalog.map(storefront.catalogService.toEdgeProduct)
       } catch {
         catalogState = 'unavailable'
       }
     }
+
+    const matches = (product: EdgeProduct) => {
+      const haystack = [product.name, product.category, product.size, product.condition]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+
+      if (searchQuery && !haystack.includes(searchQuery.toLowerCase())) return false
+      if (activeCategory && product.category !== activeCategory) return false
+      return true
+    }
+
+    const products = catalogState === 'ok' ? catalogue.filter(matches) : []
+    const filteredByCategory = Boolean(activeCategory) || Boolean(searchQuery)
 
     return view.render('pages/home', {
       ...shared,
@@ -104,7 +142,34 @@ export default class StorefrontController {
         'Handpicked Grade-A thrift and vintage clothing in Kampala, with clear UGX prices and local delivery.',
       products,
       searchQuery,
+      activeCategory,
+      filteredByCategory,
       catalogState,
+      /* The pieces shown before the full list: newest first, as the shop listed them. */
+      newArrivals: catalogState === 'ok' ? catalogue.slice(0, 4) : [],
+      /**
+       * The piece in the hero. Chosen from the whole catalogue rather than the
+       * filtered list, so the top of the page stays still while a customer
+       * browses a category.
+       */
+      heroPiece: catalogState === 'ok' ? (catalogue[0] ?? null) : null,
+      /**
+       * The pieces with a photo, one per category, used for the category tiles.
+       * A category with nothing in stock still gets a tile so the row does not
+       * look broken, and tapping it simply shows an empty collection.
+       */
+      categoryTiles: categories.map((name) => ({
+        name,
+        image: catalogue.find((product) => product.category === name && product.image)?.image || '',
+        count: catalogue.filter((product) => product.category === name).length,
+      })),
+      /**
+       * One piece to lead with. Only chosen when the shop's own data supports a
+       * reason: a piece the POS marked as featured, or one with a real previous
+       * price that is now reduced. Otherwise there is no such section, because a
+       * "deal" invented by the website would be a lie about the price.
+       */
+      featuredPiece: catalogState === 'ok' ? pickFeaturedPiece(catalogue) : null,
       bagCount: 0,
     })
   }
