@@ -129,6 +129,27 @@ npm run lint                   # eslint
 node ace test                  # Japa smoke tests (no backend required)
 ```
 
+## Listing pieces without a second system
+
+The storefront reads its catalogue from the POS API. That API now ships inside
+this same service, so the shop runs on **one** deployment:
+
+- **Add pieces** at `/shop/intake`, protected by the shop PIN (`ADMIN_PIN`,
+  default `7890`). Anything added there appears on the storefront immediately;
+  marking a piece sold hides it.
+- **The API** — `/api/health`, `/api/products`, `/api/products/:id`,
+  `/api/orders`, `/api/contact`. Reads are public, writes need the PIN in an
+  `x-adonai-pin` header.
+- **One catalogue, one backup** — the catalogue is snapshotted into the
+  `data/catalogue` branch every fifteen minutes by `.github/workflows/catalogue-snapshot.yml`
+  and restored automatically on a cold start, because free hosting hands the
+  service a fresh disk when it restarts. Orders and contact messages are never
+  snapshotted: they stay on the server.
+
+Pointing the shop at a separate POS API again is a single setting:
+`FLASK_API_BASE_URL` takes precedence over the built-in catalogue when it is set.
+See [DEPLOYMENT.md](DEPLOYMENT.md#listing-pieces-the-shop-intake-screen).
+
 ## Changing the shop details
 
 Phone numbers, the headline, the delivery promise and a promotion strip are

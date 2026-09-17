@@ -1,0 +1,203 @@
+@layout('layouts/app')
+
+@section('content')
+<section class="adonai-shell grid gap-8 py-8 sm:py-12">
+
+  {{-- ---------------------------------------------------------------- header --}}
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">Shop tools</p>
+      <h1 class="mt-2 text-3xl font-black tracking-tight text-adonai-ink sm:text-4xl">Intake</h1>
+      <p class="mt-2 max-w-xl text-sm leading-6 text-adonai-muted">Everything you add here appears on the website immediately. Customers see only the pieces marked as available.</p>
+    </div>
+    <form method="POST" action="/shop/intake/sign-out">
+      @include('components/form_security')
+      <button type="submit" class="adonai-btn-secondary !rounded-md !px-4 !py-2.5 text-xs">Sign out</button>
+    </form>
+  </div>
+
+  {{-- --------------------------------------------------------------- notices --}}
+  @if(added)
+    <div role="status" class="rounded-lg border border-adonai-primary/30 bg-adonai-lavender p-4 text-sm font-semibold text-adonai-ink">Added. It is on the website now.</div>
+  @elseif(saved)
+    <div role="status" class="rounded-lg border border-adonai-primary/30 bg-adonai-lavender p-4 text-sm font-semibold text-adonai-ink">Saved.</div>
+  @elseif(removed)
+    <div role="status" class="rounded-lg border border-adonai-primary/30 bg-adonai-lavender p-4 text-sm font-semibold text-adonai-ink">Removed from the catalogue.</div>
+  @elseif(restored)
+    <div role="status" class="rounded-lg border border-adonai-primary/30 bg-adonai-lavender p-4 text-sm font-semibold text-adonai-ink">Backup restored — {{ restored }} pieces.</div>
+  @endif
+
+  @flashMessage('error')
+    <div role="alert" class="rounded-lg border border-adonai-primary/30 bg-adonai-lavender p-4 text-sm font-semibold text-adonai-ink">{{ $message }}</div>
+  @end
+
+  @if(usingDefaultPin)
+    <div role="alert" class="rounded-lg border border-adonai-line bg-white p-4 text-sm leading-6 text-adonai-muted shadow-card">
+      <span class="font-extrabold text-adonai-ink">Your shop PIN is still the default (7890).</span>
+      Anyone who finds this page could change your prices. Change it in Render: open your service, tap <span class="font-bold text-adonai-ink">Environment</span>, add <span class="font-bold text-adonai-ink">ADMIN_PIN</span> with your own four digits, then choose <span class="font-bold text-adonai-ink">Save and deploy</span>.
+    </div>
+  @endif
+
+  {{-- ----------------------------------------------------------------- stats --}}
+  <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div class="adonai-card p-4"><p class="text-xs font-bold text-adonai-muted">Pieces listed</p><p class="mt-1 text-2xl font-black text-adonai-ink">{{ counts.products }}</p></div>
+    <div class="adonai-card p-4"><p class="text-xs font-bold text-adonai-muted">Available now</p><p class="mt-1 text-2xl font-black text-adonai-ink">{{ counts.available }}</p></div>
+    <div class="adonai-card p-4"><p class="text-xs font-bold text-adonai-muted">Orders received</p><p class="mt-1 text-2xl font-black text-adonai-ink">{{ counts.orders }}</p></div>
+    <div class="adonai-card p-4"><p class="text-xs font-bold text-adonai-muted">Messages</p><p class="mt-1 text-2xl font-black text-adonai-ink">{{ counts.messages }}</p></div>
+  </div>
+
+  {{-- ------------------------------------------------------------ add a piece --}}
+  <div class="adonai-card p-5 sm:p-7">
+    <h2 class="text-xl font-black tracking-tight text-adonai-ink">{{ editing ? 'Change this piece' : 'Add a piece' }}</h2>
+    <p class="mt-1 text-sm leading-6 text-adonai-muted">
+      @if(editing)
+        Editing <span class="font-bold text-adonai-ink">{{ editing.name }}</span>. Leave a field empty to keep what is already saved.
+      @else
+        Only the name is required. A price and a photo link make the listing much more likely to sell.
+      @endif
+    </p>
+
+    <form method="POST" action="{{ editing ? '/shop/intake/products/' + editing.id : '/shop/intake/products' }}" class="mt-5 grid gap-4" novalidate>
+      @include('components/form_security')
+
+      <label class="grid gap-2 text-xs font-bold text-adonai-ink">
+        Item name
+        <input class="adonai-input" name="name" type="text" value="{{ editing ? editing.name : '' }}" placeholder="Vintage denim jacket" />
+      </label>
+
+      <div class="grid gap-4 sm:grid-cols-3">
+        <label class="grid gap-2 text-xs font-bold text-adonai-ink">
+          Price in UGX
+          <input class="adonai-input" name="price" type="text" inputmode="numeric" value="{{ editing && editing.price ? editing.price : '' }}" placeholder="45000" />
+        </label>
+        <label class="grid gap-2 text-xs font-bold text-adonai-ink">
+          Category
+          <input class="adonai-input" name="category" type="text" value="{{ editing ? editing.category || '' : '' }}" placeholder="Outerwear" />
+        </label>
+        <label class="grid gap-2 text-xs font-bold text-adonai-ink">
+          Size
+          <input class="adonai-input" name="size" type="text" value="{{ editing ? editing.size || '' : '' }}" placeholder="M / 32" />
+        </label>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <label class="grid gap-2 text-xs font-bold text-adonai-ink">
+          Conditions
+          <input class="adonai-input" name="condition" type="text" value="{{ editing ? editing.condition || '' : '' }}" placeholder="Grade A, minor fade" />
+        </label>
+        <label class="grid gap-2 text-xs font-bold text-adonai-ink">
+          Photo link (https://...)
+          <input class="adonai-input" name="image" type="url" value="{{ editing ? editing.image || '' : '' }}" placeholder="https://" />
+        </label>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <label class="grid gap-2 text-xs font-bold text-adonai-ink">
+          Available sizes (comma separated)
+          <input class="adonai-input" name="sizes" type="text" value="{{ editing && editing.sizes ? editing.sizes.join(', ') : '' }}" placeholder="S, M, L" />
+        </label>
+        <label class="grid gap-2 text-xs font-bold text-adonai-ink">
+          Colours (comma separated)
+          <input class="adonai-input" name="colours" type="text" value="{{ editing && editing.colours ? editing.colours.join(', ') : '' }}" placeholder="Indigo, Black" />
+        </label>
+      </div>
+
+      <label class="grid gap-2 text-xs font-bold text-adonai-ink">
+        Description
+        <textarea class="adonai-input min-h-24" name="description" placeholder="One-of-one piece, cleaned and measured in store.">{{ editing ? editing.description || '' : '' }}</textarea>
+      </label>
+
+      <label class="grid gap-2 text-xs font-bold text-adonai-ink">
+        Measurements shown to customers
+        <input class="adonai-input" name="measurementNote" type="text" value="{{ editing ? editing.measurementNote || '' : '' }}" placeholder="Chest 54cm, length 68cm" />
+      </label>
+
+      <label class="flex items-center gap-3 text-xs font-bold text-adonai-ink">
+        <input type="checkbox" name="newArrival" value="true" {{ editing && editing.newArrival ? 'checked' : '' }} class="h-4 w-4" />
+        Mark as a new arrival
+      </label>
+
+      <div class="flex flex-wrap gap-3">
+        <button type="submit" class="adonai-btn-primary !rounded-md !px-5 !py-3 text-sm">{{ editing ? 'Save changes' : 'Add to the website' }}</button>
+        @if(editing)
+          <a href="/shop/intake" class="adonai-btn-secondary !rounded-md !px-5 !py-3 text-sm">Cancel</a>
+        @endif
+      </div>
+    </form>
+  </div>
+
+  {{-- ------------------------------------------------------------ the pieces --}}
+  <div class="grid gap-4">
+    <h2 class="text-xl font-black tracking-tight text-adonai-ink">Your pieces ({{ products.length }})</h2>
+
+    @if(!products.length)
+      <div class="adonai-card p-6 text-sm leading-6 text-adonai-muted">
+        Nothing listed yet. Add your first piece above and it will appear on the website straight away.
+      </div>
+    @endif
+
+    @each(product in products)
+      <div class="adonai-card flex flex-wrap items-center gap-4 p-4">
+        @if(product.image)
+          <img src="{{ product.image }}" alt="{{ product.name }}" class="h-16 w-16 rounded-lg border border-adonai-line object-cover" />
+        @else
+          <div class="grid h-16 w-16 shrink-0 place-items-center rounded-lg border border-adonai-line bg-adonai-canvas text-[10px] font-bold text-adonai-muted">No photo</div>
+        @endif
+
+        <div class="min-w-[12rem] flex-1">
+          <p class="text-sm font-extrabold text-adonai-ink">{{ product.name }}</p>
+          <p class="mt-1 text-xs text-adonai-muted">
+            {{ product.priceLabel }}
+            @if(product.category)
+              · {{ product.category }}
+            @endif
+            @if(product.size)
+              · Size {{ product.size }}
+            @endif
+          </p>
+        </div>
+
+        <span class="rounded-full px-3 py-1 text-[11px] font-extrabold {{ product.available ? 'bg-adonai-lavender text-adonai-primary' : 'bg-adonai-canvas text-adonai-muted' }}">
+          {{ product.available ? 'Available' : 'Sold' }}
+        </span>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <a href="/shop/intake?edit={{ product.id }}" class="adonai-btn-secondary !rounded-md !px-3 !py-2 text-[11px]">Edit</a>
+
+          <form method="POST" action="/shop/intake/products/{{ product.id }}">
+            @include('components/form_security')
+            <input type="hidden" name="action" value="{{ product.available ? 'sold' : 'relist' }}" />
+            <button type="submit" class="adonai-btn-secondary !rounded-md !px-3 !py-2 text-[11px]">{{ product.available ? 'Mark sold' : 'Relist' }}</button>
+          </form>
+
+          <form method="POST" action="/shop/intake/products/{{ product.id }}">
+            @include('components/form_security')
+            <input type="hidden" name="action" value="remove" />
+            <button type="submit" class="adonai-btn-secondary !rounded-md !px-3 !py-2 text-[11px]">Delete</button>
+          </form>
+        </div>
+      </div>
+    @endeach
+  </div>
+
+  {{-- ---------------------------------------------------------------- backup --}}
+  <div class="adonai-card p-5 sm:p-7">
+    <h2 class="text-xl font-black tracking-tight text-adonai-ink">Backup and restore</h2>
+    <p class="mt-1 text-sm leading-6 text-adonai-muted">
+      Download a copy of your catalogue and keep it somewhere safe — on your phone, in Google Drive, or sent to yourself on WhatsApp. If anything ever happens to the website copy, paste the file back here and everything returns.
+    </p>
+
+    <a href="/shop/intake/backup" class="adonai-btn-primary mt-4 inline-block !rounded-md !px-5 !py-3 text-sm">Download my catalogue</a>
+
+    <form method="POST" action="/shop/intake/restore" class="mt-6 grid gap-3" novalidate>
+      @include('components/form_security')
+      <label class="grid gap-2 text-xs font-bold text-adonai-ink">
+        Restore from a backup
+        <textarea class="adonai-input min-h-24 font-mono text-[11px]" name="backup" placeholder="Paste the contents of your backup file here"></textarea>
+      </label>
+      <button type="submit" class="adonai-btn-secondary w-fit !rounded-md !px-5 !py-3 text-sm">Replace the catalogue with this backup</button>
+    </form>
+  </div>
+
+</section>
+@endsection

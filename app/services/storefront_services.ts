@@ -1,3 +1,5 @@
+import app from '@adonisjs/core/services/app'
+import CatalogueStore from '#services/catalogue_store'
 import env from '#start/env'
 
 export type EdgeGalleryImage = {
@@ -57,6 +59,21 @@ export class StorefrontUnavailableError extends Error {
   }
 }
 
+/**
+ * Raised when a customer tries to use the account screens while the shop runs
+ * on the built-in catalogue, which has no customer accounts. The storefront
+ * still takes orders and messages without them.
+ */
+export class StorefrontAccountsUnavailableError extends Error {
+  static status = 503
+
+  readonly code = 'E_STOREFRONT_ACCOUNTS_UNAVAILABLE'
+
+  constructor() {
+    super('Customer accounts are not available yet. Orders can be placed without an account.')
+  }
+}
+
 export type StorefrontServices = {
   forwardSessionCookies: (response: AdonisResponseHeaders) => void
   catalogService: {
@@ -72,6 +89,36 @@ export type StorefrontServices = {
   orderService: {
     createFromCheckout: (payload: Record<string, unknown>) => Promise<{ id: string }>
   }
+}
+
+/**
+ * Whether the shop runs against a separate private POS API. When it does not,
+ * the storefront reads the catalogue that ships with this service, so pieces
+ * can be listed without a second deployment.
+ */
+export function usesExternalPosApi(): boolean {
+  return Boolean((env.get('FLASK_API_BASE_URL') || '').trim())
+}
+
+/**
+ * The catalogue data directory. Resolved against the application root rather
+ * than the process working directory, because the container starts the app from
+ * a directory that does not contain "storage".
+ */
+function catalogueDataDir(): string {
+  const configured = (env.get('ADONAI_DATA_DIR') || 'storage/data').trim()
+  return configured.startsWith('/') ? configured : app.makePath(configured)
+}
+
+let builtInCatalogue: CatalogueStore | null = null
+
+/**
+ * One store instance per process: the files are read once and written on every
+ * change, so the shop and the intake screens always agree.
+ */
+export function getBuiltInCatalogue(): CatalogueStore {
+  if (!builtInCatalogue) builtInCatalogue = new CatalogueStore(catalogueDataDir())
+  return builtInCatalogue
 }
 
 function asString(value: unknown, fallback = ''): string {
@@ -259,6 +306,58 @@ class FlaskStorefrontGateway {
 
 export function createStorefrontServices(incomingCookie?: string): StorefrontServices {
   const gateway = new FlaskStorefrontGateway(incomingCookie)
+
+  /**
+   * No separate POS API is configured, so the catalogue that ships with this
+   * service answers instead. The storefront gets exactly the same interface,
+   * which means every page, search, sitemap entry and product URL keeps
+   * working without a second service to deploy.
+   */
+  if (!usesExternalPosApi()) {
+    const catalogue = getBuiltInCatalogue()
+
+    return {
+      forwardSessionCookies: () => {},
+      catalogService: {
+        async availableProducts({ searchQuery }) {
+          return catalogue.availableProducts(searchQuery)
+        },
+        async findAvailableProduct(id) {
+          const product = catalogue.findProduct(String(id))
+          /**
+           * A piece that has been marked sold is treated as no longer listed,
+           * so an old link answers 404 rather than showing it as in stock.
+           */
+          return product && product.available ? product : null
+        },
+        toEdgeProduct,
+      },
+      accountService: {
+        /**
+         * Customer accounts belong to the POS API. Until the shop runs one,
+         * the storefront says so plainly instead of failing obscurely.
+         */
+        async signIn() {
+          throw new StorefrontAccountsUnavailableError()
+        },
+        async register() {
+          throw new StorefrontAccountsUnavailableError()
+        },
+      },
+      contactService: {
+        async send(payload) {
+          catalogue.addMessage(payload)
+          return { ok: true }
+        },
+      },
+      orderService: {
+        async createFromCheckout(payload) {
+          const order = catalogue.addOrder(payload)
+          return { id: order.id }
+        },
+      },
+    }
+  }
 
   return {
     forwardSessionCookies: (response) => gateway.forwardSessionCookies(response),

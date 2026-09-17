@@ -68,7 +68,11 @@ COPY --from=build /app/build ./build
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./package.json
 
-RUN mkdir -p storage/media \
+# The shop catalogue is written at runtime. Paths are resolved against the
+# application root, which is "build" in production, so a relative ADONAI_DATA_DIR
+# of "storage/data" lands in build/storage/data. Both are created here because
+# the service runs as a non-root user.
+RUN mkdir -p storage/media storage/data build/storage/data \
   && groupadd --system adonai \
   && useradd --system --gid adonai --home-dir /app adonai \
   && chown -R adonai:adonai /app

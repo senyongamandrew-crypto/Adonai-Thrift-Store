@@ -203,6 +203,66 @@ at boot, so a build is required before the server starts in production.
 
 ---
 
+## Listing pieces: the shop intake screen
+
+The storefront and the catalogue live in the same service, so there is no second
+system to keep in step. Pieces added on the intake screen appear on the website
+immediately.
+
+1. Open **https://<your-site>/shop/intake**
+2. Enter the shop PIN. Until `ADMIN_PIN` is set in the dashboard, the PIN is
+   **7890**, and the screen shows a reminder to change it.
+3. Fill in the name (the only required field), a price in UGX and a photo link,
+   then tap **Add to the website**.
+
+Each piece in the list can be edited, marked **sold** (hidden from customers but
+kept for your records) or deleted. **Download my catalogue** saves a JSON backup
+you can keep on your phone; pasting it back and saving restores everything.
+
+### The API behind it
+
+| Route | Method | Who can call it |
+| --- | --- | --- |
+| `/api/health` | GET | anyone — devices use it to check the address |
+| `/api/products` | GET | anyone. `?includeUnavailable=true` also returns sold pieces |
+| `/api/products/:id` | GET | anyone |
+| `/api/products` | POST | shop PIN — add a piece |
+| `/api/products/:id` | PUT | shop PIN — change a piece |
+| `/api/products/:id` | DELETE | shop PIN — remove a piece |
+| `/api/orders`, `/api/contact` | POST | anyone — used by checkout and the contact form |
+
+The PIN is sent as `x-adonai-pin: <pin>` or `Authorization: Bearer <pin>`. A
+device can be pointed at this address and will work on its own, because CSRF
+protection is deliberately switched off for `/api/*` (a machine has no browser
+session) and the PIN guards the writes instead.
+
+### Where the catalogue is stored, and what that means
+
+`storage/data/catalogue.json` holds the pieces; `storage/data/records.json` holds
+orders and contact messages. **Orders and messages never leave the server** —
+they contain customer details.
+
+Free hosting gives the service a **fresh, empty disk whenever it restarts**, so
+the catalogue is also mirrored into this repository:
+
+- `.github/workflows/catalogue-snapshot.yml` copies the live catalogue into the
+  `data/catalogue` branch every fifteen minutes. The workflow runs on the
+  **default branch** only, so it starts working once this work is merged into
+  `main`.
+- On a cold start, `start/catalogue.ts` restores an empty catalogue from that
+  published file.
+
+That combination means nothing is lost, with one exception: pieces added after
+the most recent snapshot are gone if the service restarts before the next one
+(up to fifteen minutes). **Download my catalogue** from the intake screen remains
+the manual safety net, and it is the only backup you need while the site runs on
+the free plan.
+
+When the shop is ready for guaranteed storage, add a database and set
+`DATABASE_URL`: the catalogue then lives in Postgres instead of on the temporary
+disk, and the snapshot becomes a second layer rather than the only one. That is
+the point at which the free plan stops being a compromise.
+
 ## Putting the store on your own domain
 
 The `onrender.com` address keeps working either way, so nothing breaks while the

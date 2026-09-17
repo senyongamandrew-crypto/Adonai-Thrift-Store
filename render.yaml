@@ -33,6 +33,11 @@ services:
         value: Adonai Thrift Store
       - key: SESSION_DRIVER
         value: cookie
+      # Where the shop catalogue is written. Deliberately outside build/, which
+      # is rebuilt from scratch on every deploy. This is a fixed path, not a
+      # setting the owner edits, so declaring it here is safe.
+      - key: ADONAI_DATA_DIR
+        value: /app/storage/data
       # The storefront wording (WHATSAPP_NUMBER, CALL_NUMBER, BANNER_TEXT,
       # DELIVERY_NOTE, HERO_HEADLINE, PROMO_BANNER) is deliberately NOT declared
       # here. A Blueprint sync overwrites whatever the Blueprint declares, so a

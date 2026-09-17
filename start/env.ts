@@ -72,6 +72,27 @@ export default await Env.create(APP_ROOT, {
   | page or a client-side JavaScript file.
   */
   /**
+   * Shop PIN for the intake screen and catalogue write endpoints. Stored here
+   * rather than in code so it can be changed from the hosting dashboard. When
+   * unset the shop uses the built-in 7890 and the intake screen asks for it to
+   * be changed.
+   */
+  ADMIN_PIN: Env.schema.string.optional(),
+
+  /**
+   * The catalogue that ships with this service answers the storefront when no
+   * separate POS API is configured. Set to "false" to switch it off and go back
+   * to showing "catalog is being connected" until a POS API is provided.
+   */
+  ADONAI_BUILTIN_CATALOGUE: Env.schema.boolean.optional(),
+
+  /**
+   * Public JSON snapshot of the catalogue. On a cold start with an empty disk,
+   * the catalogue is restored from here. See the snapshot workflow.
+   */
+  CATALOGUE_SNAPSHOT_URL: Env.schema.string.optional(),
+
+  /**
    * Private base URL of the Flask / POS backend. Optional: when it is not set
    * the storefront still runs and explains that the catalog is not connected
    * yet instead of failing. Server side only — never expose it to the browser.

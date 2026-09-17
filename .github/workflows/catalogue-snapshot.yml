@@ -1,0 +1,92 @@
+name: Catalogue snapshot
+
+# Keeps a durable copy of the shop catalogue in this repository.
+#
+# Free hosting hands the service a fresh, empty disk whenever it restarts, so a
+# catalogue that only existed inside the running service could be lost. This job
+# copies the live catalogue into the "data/catalogue" branch every fifteen
+# minutes, and the service restores itself from that file on a cold start.
+#
+# It writes to a separate branch on purpose: a push to the deployed branch would
+# trigger a full rebuild of the site.
+#
+# Orders and contact messages are NOT included. They contain customer details
+# and stay on the server.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: catalogue-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch the live catalogue
+        env:
+          SITE_URL: https://adonai-thrift-store-hqg3.onrender.com
+        run: |
+          set -euo pipefail
+          # A cold start can take about a minute, so allow generous timeouts.
+          for attempt in 1 2 3; do
+            if curl -fsS --max-time 90 "$SITE_URL/api/products?includeUnavailable=true" -o /tmp/products.json; then
+              break
+            fi
+            echo "Attempt $attempt failed; waiting for the service to wake up."
+            sleep 20
+          done
+
+      - name: Check the response looks like a catalogue
+        run: |
+          set -euo pipefail
+          node -e "
+            const fs = require('fs');
+            const payload = JSON.parse(fs.readFileSync('/tmp/products.json', 'utf8'));
+            const products = payload.products;
+            if (!Array.isArray(products)) throw new Error('no products array in the response');
+            // Never let a failed or empty response wipe a good snapshot.
+            if (products.length === 0) {
+              console.log('Catalogue is empty; keeping the existing snapshot untouched.');
+              process.exit(3);
+            }
+            fs.writeFileSync(
+              '/tmp/catalogue.json',
+              JSON.stringify({ version: 1, generatedAt: new Date().toISOString(), products }, null, 2) + '\n'
+            );
+            console.log('Snapshotting ' + products.length + ' items.');
+          "
+
+      - name: Publish the snapshot to the data branch
+        run: |
+          set -euo pipefail
+          git config user.name "adonai-catalogue-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+          if git ls-remote --exit-code --heads origin data/catalogue > /dev/null 2>&1; then
+            git fetch --depth=1 origin data/catalogue
+            git checkout -B data/catalogue FETCH_HEAD
+          else
+            git checkout --orphan data/catalogue
+            git rm -rf . > /dev/null 2>&1 || true
+          fi
+
+          mkdir -p data/catalogue
+          cp /tmp/catalogue.json data/catalogue/catalogue.json
+          git add -f data/catalogue/catalogue.json
+
+          if git diff --cached --quiet; then
+            echo "Catalogue unchanged since the last snapshot."
+            exit 0
+          fi
+
+          git commit -m "Catalogue snapshot $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push origin HEAD:data/catalogue

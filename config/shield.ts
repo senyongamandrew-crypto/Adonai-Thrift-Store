@@ -4,7 +4,17 @@ import { defineConfig } from '@adonisjs/shield'
 export default defineConfig({
   csrf: {
     enabled: true,
-    exceptRoutes: [],
+    /**
+     * The POS API is called by the mobile intake app and by scripts, which have
+     * no browser session and therefore no CSRF token. Those routes are guarded
+     * by the shop PIN instead (see app/services/shop_pin.ts), which a hostile
+     * website cannot read out of a cookie jar.
+     *
+     * This is a callback rather than a list on purpose: the list form compares
+     * each entry against the route pattern with an exact match, so an entry
+     * like "/api/*" would silently never match anything.
+     */
+    exceptRoutes: (ctx) => ctx.request.url().startsWith('/api/'),
     enableXsrfCookie: true,
     methods: ['POST', 'PUT', 'PATCH', 'DELETE'],
   },

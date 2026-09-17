@@ -3,6 +3,10 @@ import type { StorefrontHttpContext } from '#middleware/storefront_services_midd
 import type { EdgeProduct } from '#services/storefront_services'
 import env from '#start/env'
 import {
+  StorefrontAccountsUnavailableError,
+  usesExternalPosApi,
+} from '#services/storefront_services'
+import {
   checkoutValidator,
   contactValidator,
   signInValidator,
@@ -19,7 +23,17 @@ export default class StorefrontController {
    * storefront runs fine without it, so this is not a hard requirement.
    */
   private isCatalogConfigured() {
-    return Boolean(env.get('FLASK_API_BASE_URL'))
+    return usesExternalPosApi() || this.builtInCatalogueEnabled()
+  }
+
+  /**
+   * The catalogue that ships with this service is on by default, so the shop
+   * can list pieces without deploying a second system. Setting
+   * ADONAI_BUILTIN_CATALOGUE=false restores the "catalog is being connected"
+   * state until an external POS API is provided.
+   */
+  private builtInCatalogueEnabled() {
+    return env.get('ADONAI_BUILTIN_CATALOGUE') !== false
   }
 
   /**
@@ -173,6 +187,7 @@ export default class StorefrontController {
     const isSignup = request.url().includes('sign-up')
     return view.render('pages/auth', {
       ...this.sharedViewData(request),
+      accountsAvailable: usesExternalPosApi(),
       mode: isSignup ? 'signup' : 'signin',
       pageTitle: isSignup
         ? 'Create an account · Adonai Thrift Store'
@@ -197,22 +212,49 @@ export default class StorefrontController {
   }
 
   async signIn(ctx: HttpContext) {
-    const { request, response, storefront } = ctx as StorefrontHttpContext
+    const { request, response, session, storefront } = ctx as StorefrontHttpContext
     const payload = await signInValidator.validate(request.all())
-    // Never log the password; the adapter forwards it only over the private server boundary.
-    await storefront.accountService.signIn(
-      payload.identifier,
-      payload.password,
-      Boolean(payload.remember)
-    )
+    try {
+      // Never log the password; the adapter forwards it only over the private server boundary.
+      await storefront.accountService.signIn(
+        payload.identifier,
+        payload.password,
+        Boolean(payload.remember)
+      )
+    } catch (error) {
+      /**
+       * Customer accounts belong to the POS API. While the shop runs on the
+       * built-in catalogue, say so plainly and send the visitor back to the
+       * page rather than showing a server error.
+       */
+      if (error instanceof StorefrontAccountsUnavailableError) {
+        session.flash(
+          'error',
+          'Accounts are not open yet. You can still order — just continue to checkout or message us on WhatsApp.'
+        )
+        return response.redirect().back()
+      }
+      throw error
+    }
     storefront.forwardSessionCookies(response)
     return response.redirect().toPath('/account')
   }
 
   async signUp(ctx: HttpContext) {
-    const { request, response, storefront } = ctx as StorefrontHttpContext
+    const { request, response, session, storefront } = ctx as StorefrontHttpContext
     const payload = await signUpValidator.validate(request.all())
-    await storefront.accountService.register({ ...payload, website: undefined })
+    try {
+      await storefront.accountService.register({ ...payload, website: undefined })
+    } catch (error) {
+      if (error instanceof StorefrontAccountsUnavailableError) {
+        session.flash(
+          'error',
+          'Accounts are not open yet. You can still order — just continue to checkout or message us on WhatsApp.'
+        )
+        return response.redirect().back()
+      }
+      throw error
+    }
     storefront.forwardSessionCookies(response)
     return response.redirect().toPath('/account')
   }
