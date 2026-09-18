@@ -165,4 +165,60 @@
   .adonai-icon-button {
     @apply grid h-10 w-10 shrink-0 place-items-center rounded-md bg-adonai-primary text-white transition-colors hover:bg-adonai-primaryDark focus:outline-none focus:ring-2 focus:ring-adonai-primary/30;
   }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Shop tools furniture
+  |--------------------------------------------------------------------------
+  | The owner's own screens (sign in, intake). They are used one-handed, on a
+  | phone, often while standing in the shop — so every control here is sized
+  | to be tapped without aiming: 44px tall, which is the smallest a finger
+  | reliably hits.
+  */
+
+  /* The destructive pair — delete a piece, replace the catalogue. */
+  .adonai-btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-adonai-danger/30 bg-white px-4 py-3 text-sm font-semibold text-adonai-danger transition-colors hover:border-adonai-danger hover:bg-adonai-danger hover:text-white focus:outline-none focus:ring-2 focus:ring-adonai-danger/30;
+  }
+
+  /*
+   * The photo step. It is the one thing that most often goes wrong when a piece
+   * is added (a phone's own camera app writes files far bigger than the limit),
+   * so it gets room, a plain instruction and a live preview of what was chosen.
+   */
+  .adonai-photo-picker {
+    @apply flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-adonai-line bg-adonai-canvas px-4 py-6 text-center transition-colors hover:border-adonai-primary hover:bg-adonai-primarySoft;
+  }
+
+  .adonai-photo-preview {
+    @apply flex items-center gap-3 rounded-lg border border-adonai-line bg-white p-3;
+  }
+
+  /*
+   * Same trap as .adonai-cookie-banner[hidden] above: this rule sets
+   * "display: flex", which would beat the plain [hidden] attribute and leave the
+   * empty preview visible with a broken image in it. Matching the attribute
+   * alongside the class keeps "hidden" authoritative.
+   */
+  .adonai-photo-preview[hidden] {
+    display: none;
+  }
+
+  .adonai-photo-thumb {
+    @apply h-24 w-24 rounded-lg border border-adonai-line object-cover;
+  }
+
+  /* A numbered step heading inside the "add a piece" form. */
+  .adonai-step-label {
+    @apply flex items-center gap-2 text-sm font-extrabold text-adonai-ink;
+  }
+
+  .adonai-step-number {
+    @apply grid h-6 w-6 shrink-0 place-items-center rounded-full bg-adonai-primary text-[11px] font-extrabold text-white;
+  }
+
+  /* One line of the owner's own piece list. */
+  .adonai-piece-row {
+    @apply grid gap-4 rounded-lg border border-adonai-line bg-white p-4 shadow-card sm:grid-cols-[auto_1fr_auto] sm:items-center;
+  }
 }

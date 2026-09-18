@@ -55,6 +55,19 @@ export default {
           line: '#E8DFD3',
           skeleton: '#EFE9E0',
           skeletonDark: '#DCD3C6',
+
+          /*
+           * Brick red, used for one job only: the two buttons that destroy
+           * something (delete a piece, replace the catalogue from a backup).
+           *
+           * It is not a logo colour, and that is the point — "Delete" must not
+           * look like the copper "Save" beside it. It is mixed warm and dark to
+           * sit with the rest of the palette, and it is measured: white text on
+           * it is 7.55:1, and it reads at 7.13:1 on the page background, so it
+           * clears AA in both directions.
+           */
+          danger: '#8C3B2E',
+          dangerDark: '#743023',
         },
       },
       boxShadow: {

@@ -13,7 +13,9 @@
 */
 
 import type { HttpContext } from '@adonisjs/core/http'
+import { readFileSync } from 'node:fs'
 import type { ProductInput } from '#services/catalogue_store'
+import { maxUploadBytes, resolveImageContentType, saveImage } from '#services/media_store'
 import {
   clearPinFailures,
   pinAttemptDelay,
@@ -93,6 +95,12 @@ export default class AdminController {
       saved: request.input('saved'),
       removed: request.input('removed'),
       restored: request.input('restored'),
+      /**
+       * The photo limit is shown on the screen, so the shop is told what the
+       * website will accept before a five-minute upload runs into a refusal.
+       * It is read from the same setting the upload itself uses.
+       */
+      photoLimitMb: Math.round(maxUploadBytes() / (1024 * 1024)),
     })
   }
 
@@ -133,6 +141,11 @@ export default class AdminController {
       return response.redirect().back()
     }
 
+    const photo = this.attachPhoto(request)
+    if (photo.url) payload.image = photo.url
+    if (photo.error)
+      session.flash('warning', `${photo.error} The piece was saved without that photo.`)
+
     const product = this.store().addProduct(payload)
     return response.redirect().toPath(`/shop/intake?added=${encodeURIComponent(product.id)}`)
   }
@@ -160,6 +173,11 @@ export default class AdminController {
     }
 
     const payload = this.productFrom(request.all() as Record<string, unknown>)
+
+    const photo = this.attachPhoto(request)
+    if (photo.url) payload.image = photo.url
+    if (photo.error) session.flash('warning', `${photo.error} The rest of the change was saved.`)
+
     const updated = this.store().updateProduct(id, payload)
     if (!updated) {
       session.flash('error', 'That item is no longer in the catalogue.')
@@ -209,6 +227,62 @@ export default class AdminController {
       session.flash('error', 'That does not look like an Adonai catalogue backup.')
       return response.redirect().back()
     }
+  }
+
+  /**
+   * A photo chosen from the phone, if one was attached to the form.
+   *
+   * It is saved through the same store the till uses, so a photo added here and
+   * one added by the POS app end up in the same folder and are served the same
+   * way at /media/...
+   *
+   * Returns nothing when no file was attached, which leaves any existing photo
+   * alone. Returns an error when a file was attached but could not be used, so
+   * the shop is told rather than left wondering why the photo never appeared.
+   */
+  private attachPhoto(request: HttpContext['request']): { url?: string; error?: string } {
+    const upload = request.file('photo', {
+      size: maxUploadBytes(),
+      extnames: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+    })
+
+    if (!upload) return {}
+
+    if (!upload.isValid) {
+      /**
+       * The parser's own wording is written for programmers ("Invalid file
+       * extension undefined"). This is a shopkeeper standing in a doorway, so
+       * the two things they can act on are named instead: the four formats and
+       * the size ceiling.
+       */
+      const megabytes = Math.round(maxUploadBytes() / (1024 * 1024))
+      const reason = upload.errors[0]?.type
+      return {
+        error:
+          reason === 'size'
+            ? `That photo is bigger than ${megabytes} MB, which is the most the website can store. Set the camera to a smaller size, or choose a different photo.`
+            : `That file is not a photo the website can store. Photos need to be a JPEG, PNG, WebP or GIF, under ${megabytes} MB.`,
+      }
+    }
+
+    const temporaryPath = upload.tmpPath
+    if (!temporaryPath) return { error: 'The photo did not arrive. Please try again.' }
+
+    const bytes = readFileSync(temporaryPath)
+    if (bytes.length === 0) return { error: 'That photo was empty. Please try again.' }
+
+    /**
+     * The format is taken from the file itself, not from what the phone said:
+     * the multipart parser reports "image" and leaves the rest out, which is not
+     * a type a browser will draw.
+     */
+    const contentType = resolveImageContentType(bytes, upload.type)
+    if (!contentType) {
+      return { error: 'That file is not a photo. Use a JPEG, PNG, WebP or GIF.' }
+    }
+
+    const saved = saveImage(bytes, contentType)
+    return { url: saved.url }
   }
 
   /**

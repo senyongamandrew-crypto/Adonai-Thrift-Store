@@ -1,34 +1,65 @@
 @layout('layouts/app')
 
 @section('content')
-<section class="adonai-shell grid min-h-[60vh] place-items-center py-10 sm:py-14">
-  <div class="adonai-card w-full max-w-md p-6 sm:p-8">
-    <p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">Shop tools</p>
+<section class="adonai-shell grid min-h-[60vh] place-items-center py-8 sm:py-14">
+  <div class="adonai-card w-full max-w-md p-5 sm:p-8">
+
+    {{-- ------------------------------------------------------------- heading --}}
+    <span class="adonai-trust-icon !h-12 !w-12">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6" aria-hidden="true">
+        <rect x="4" y="10.5" width="16" height="10" rx="2" />
+        <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
+        <circle cx="12" cy="15.5" r="1.2" fill="currentColor" stroke="none" />
+      </svg>
+    </span>
+    <p class="mt-4 text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">Shop tools</p>
     <h1 class="mt-2 text-3xl font-black tracking-tight text-adonai-ink">Enter your shop PIN</h1>
     <p class="mt-3 text-sm leading-6 text-adonai-muted">This opens the intake screen, where you add the pieces you want customers to see on the website.</p>
 
+    {{-- ------------------------------------------------------------- notices --}}
     @if(message)
       <div role="alert" class="mt-6 rounded-lg border border-adonai-primary/30 bg-adonai-sand p-4 text-sm font-semibold text-adonai-ink">{{ message }}</div>
     @endif
 
+    {{-- --------------------------------------------------------- the PIN box --}}
     <form method="POST" action="/shop/intake/session" class="mt-6 grid gap-4" novalidate>
       @include('components/form_security')
 
       <label class="grid gap-2 text-xs font-bold text-adonai-ink">
         PIN
         <input
-          class="adonai-input"
+          class="adonai-input text-center text-2xl font-black tracking-[.5em]"
           name="pin"
           type="password"
           inputmode="numeric"
           autocomplete="current-password"
-          placeholder="Your shop PIN"
+          enterkeyhint="go"
+          placeholder="••••"
+          aria-describedby="pin-help"
           required
         />
       </label>
 
-      <button type="submit" class="adonai-btn-primary w-full !rounded-md !px-4 !py-3 text-sm">Open the shop tools</button>
+      <button type="submit" class="adonai-btn-primary w-full text-base">Open the shop tools</button>
     </form>
+
+    <p id="pin-help" class="mt-4 text-xs leading-5 text-adonai-muted">
+      Four digits. The website asks for the PIN again after 12 hours, so you only do this
+      once a day.
+    </p>
+
+    {{-- ------------------------------------------------------- forgotten PIN --}}
+    <details class="mt-4 rounded-lg border border-adonai-line bg-adonai-canvas p-4">
+      <summary class="cursor-pointer text-xs font-extrabold text-adonai-ink">Forgotten the PIN?</summary>
+      <p class="mt-3 text-xs leading-5 text-adonai-muted">
+        Only you can read it, because it is stored on your own hosting account.
+        Open <span class="font-bold text-adonai-ink">render.com</span>, tap your
+        <span class="font-bold text-adonai-ink">adonai-thrift-store</span> service, then
+        <span class="font-bold text-adonai-ink">Environment</span>. The line named
+        <span class="font-bold text-adonai-ink">ADMIN_PIN</span> holds it. If that line is missing,
+        the PIN is <span class="font-bold text-adonai-ink">7890</span>.
+      </p>
+    </details>
 
     <p class="mt-5 text-xs leading-5 text-adonai-muted">
       Not the shop owner? You can

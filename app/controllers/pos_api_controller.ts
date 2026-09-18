@@ -474,11 +474,21 @@ export default class PosApiController {
         error: `Images need to be under ${Math.round(limit / (1024 * 1024))} MB.`,
       })
     }
-    if (!contentType.startsWith('image/')) {
-      return response.status(400).send({ ok: false, error: 'Only images can be uploaded.' })
+    /**
+     * The bytes decide the format. The multipart parser hands over the group
+     * only ("image", with the "png" part kept separately), so a phone uploading
+     * a PNG used to be turned away here as "not an image", and a JPEG that got
+     * through was stored under a type no browser will draw. Checking the magic
+     * number accepts the same four formats and refuses anything else.
+     */
+    const resolved = media.resolveImageContentType(bytes, contentType)
+    if (!resolved) {
+      return response
+        .status(400)
+        .send({ ok: false, error: 'Only JPEG, PNG, WebP and GIF photos can be uploaded.' })
     }
 
-    const entry = media.saveImage(bytes, contentType)
+    const entry = media.saveImage(bytes, resolved)
     return response.status(201).send({ ok: true, media: entry, url: entry.url })
   }
 
@@ -558,7 +568,14 @@ export default class PosApiController {
     const image = media.readImage(String(params.key || ''))
     if (!image) return response.status(404).send({ ok: false, error: 'No such image.' })
 
-    response.header('content-type', image.contentType)
+    /**
+     * Sniffed rather than taken from the record, so photos stored before the
+     * type was read correctly still appear instead of showing as a broken
+     * image. "X-Content-Type-Options: nosniff" is set site-wide, which means a
+     * wrong type here is not guessed at by the browser, it simply fails.
+     */
+    const contentType = media.resolveImageContentType(image.bytes, image.contentType)
+    response.header('content-type', contentType || 'application/octet-stream')
     response.header('cache-control', 'public, max-age=86400')
     return response.status(200).send(image.bytes)
   }

@@ -41,6 +41,72 @@ const EXTENSIONS: Record<string, string> = {
   'image/gif': 'gif',
 }
 
+/**
+ * The photo's real format, read from the first bytes of the file rather than
+ * from whatever the phone claimed it was sending.
+ *
+ * This matters because the multipart parser reports the *group* only: a PNG
+ * arrives as "image" with the "png" part in a separate field. Trusting it sent
+ * every photo down the JPEG path — the file was stored as "….jpg" and served
+ * with a header of "image", which a browser refuses to draw with sniffing
+ * switched off, so an uploaded photo looked like a broken image on the
+ * storefront. A name can lie; the first four bytes cannot.
+ */
+export function sniffImageType(bytes: Buffer): string | null {
+  if (bytes.length < 12) return null
+
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg'
+
+  if (
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  ) {
+    return 'image/png'
+  }
+
+  const header = bytes.subarray(0, 6).toString('latin1')
+  if (header === 'GIF87a' || header === 'GIF89a') return 'image/gif'
+
+  if (
+    bytes.subarray(0, 4).toString('latin1') === 'RIFF' &&
+    bytes.subarray(8, 12).toString('latin1') === 'WEBP'
+  ) {
+    return 'image/webp'
+  }
+
+  return null
+}
+
+/**
+ * The content type to store a photo under, or null when it is not a photo this
+ * shop accepts.
+ *
+ * The bytes decide when they can. Only when the magic number is unknown does
+ * the device's own claim get a say, and only if it is one of the four formats
+ * the shop can display — anything else, including the bare "image" the parser
+ * reports, is refused rather than stored under a name that cannot be served.
+ */
+export function resolveImageContentType(bytes: Buffer, claimed = ''): string | null {
+  /**
+   * Nothing shorter than a header can be a photo, so the device's claim is not
+   * even considered for it. An empty or truncated upload must never be stored
+   * because the name it arrived under looked right.
+   */
+  if (bytes.length < 12) return null
+
+  const sniffed = sniffImageType(bytes)
+  if (sniffed) return sniffed
+
+  const normalised = claimed.trim().toLowerCase()
+  return EXTENSIONS[normalised] ? (normalised === 'image/jpg' ? 'image/jpeg' : normalised) : null
+}
+
 function mediaDirectory(): string {
   const configured = (env.get('ADONAI_MEDIA_DIR') || 'storage/media').trim()
   /**
