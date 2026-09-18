@@ -1,0 +1,24 @@
+@layout('layouts/app')
+
+@section('content')
+<section class="adonai-shell grid min-h-[70vh] place-items-center py-12">
+  <div class="w-full">
+    @if(accountsAvailable === false)
+      {{-- No POS API runs yet, so there are no customer accounts to sign in to. --}}
+      <div class="adonai-card mx-auto w-full max-w-xl p-6 text-center sm:p-8">
+        <p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">No account needed</p>
+        <h1 class="mt-2 text-3xl font-black tracking-tight text-adonai-ink sm:text-4xl">Order without signing in</h1>
+        <p class="mx-auto mt-3 max-w-md text-sm leading-6 text-adonai-muted">Customer accounts are not open yet. You can order any piece through checkout, or message the store on WhatsApp and we will hold it for you.</p>
+        <div class="mt-6 flex flex-wrap justify-center gap-3">
+          <a href="/checkout" class="adonai-btn-primary !rounded-md !px-5 !py-3 text-sm">Continue to checkout</a>
+          <a href="{{ site.whatsappLink }}" class="adonai-btn-secondary !rounded-md !px-5 !py-3 text-sm">Chat on WhatsApp</a>
+        </div>
+      </div>
+    @elseif(mode === 'signup')
+      @include('components/auth/sign_up')
+    @else
+      @include('components/auth/sign_in')
+    @endif
+  </div>
+</section>
+@endsection

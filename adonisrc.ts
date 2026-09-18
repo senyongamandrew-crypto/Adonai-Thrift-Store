@@ -23,10 +23,7 @@ export default defineConfig({
   | will be scanned automatically from the "./commands" directory.
   |
   */
-  commands: [
-    () => import('@adonisjs/core/commands'),
-    () => import('@adonisjs/session/commands'),
-  ],
+  commands: [() => import('@adonisjs/core/commands'), () => import('@adonisjs/session/commands')],
 
   /*
   |--------------------------------------------------------------------------
@@ -61,6 +58,8 @@ export default defineConfig({
   |
   */
   preloads: [
+    () => import('#start/edge'),
+    () => import('#start/catalogue'),
     () => import('#start/routes'),
     () => import('#start/kernel'),
     () => import('#start/validator'),

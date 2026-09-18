@@ -1,0 +1,16 @@
+@layout('layouts/app')
+
+@section('content')
+<section class="adonai-shell max-w-4xl py-12 sm:py-20">
+  <p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">Adonai Thrift Store</p>
+  <h1 class="mt-3 text-4xl font-black tracking-tight sm:text-6xl">Terms &amp; conditions</h1>
+  <p class="mt-4 text-sm text-adonai-muted">Last updated: {{ updatedAt || '14 September 2026' }}</p>
+  <div class="prose-adonai mt-10">
+    <h2>One-of-one stock</h2><p>Most Adonai pieces are unique. Adding an item to a bag does not guarantee availability until the server confirms a short checkout hold.</p>
+    <h2>Orders and payment</h2><p>Prices are shown in UGX. We confirm the item, customer details, delivery destination and payment method before dispatch. A piece may become unavailable if another confirmed order completes first.</p>
+    <h2>Try &amp; Confirm</h2><p>For eligible Kampala deliveries, inspect the garment at your doorstep and confirm the fit and condition before completing the agreed payment. Contact the team promptly if there is an issue.</p>
+    <h2>Delivery</h2><p>Delivery coverage, timing and fees depend on the destination and current rider availability. The team will contact you using the phone number on the order.</p>
+    <h2>Contact</h2><p>Adonai Thrift Store is located in Wakiso Kampala Uganda. WhatsApp <a href="{{ site.whatsappLink }}">{{ site.whatsappNumber }}</a> or call <a href="{{ site.callLink }}">{{ site.callNumber }}</a>.</p>
+  </div>
+</section>
+@endsection

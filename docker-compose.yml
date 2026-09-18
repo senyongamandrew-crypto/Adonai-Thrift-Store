@@ -1,0 +1,34 @@
+#
+# Local production-style run of the storefront.
+#
+#   cp .env.example .env   # then set APP_KEY, APP_URL, SITE_URL, FLASK_API_BASE_URL
+#   docker compose up --build
+#   open http://localhost:3333
+#
+services:
+  storefront:
+    build: .
+    image: adonai-thrift-store:local
+    ports:
+      - '3333:3333'
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3333
+      # The container talks to your POS backend over the network, so a
+      # 127.0.0.1 value in .env would point inside the container.
+      FLASK_API_BASE_URL: ${FLASK_API_BASE_URL}
+      FLASK_INTERNAL_API_TOKEN: ${FLASK_INTERNAL_API_TOKEN}
+      APP_KEY: ${APP_KEY}
+      APP_URL: ${APP_URL}
+      SITE_URL: ${SITE_URL}
+      SESSION_DRIVER: cookie
+      DB_CONNECTION: sqlite
+      ANALYTICS_PROVIDER: none
+      FORCE_HTTPS: 'false'
+    volumes:
+      - storefront-media:/app/storage
+    restart: unless-stopped
+
+volumes:
+  storefront-media:

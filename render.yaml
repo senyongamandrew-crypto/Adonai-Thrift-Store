@@ -1,0 +1,66 @@
+#
+# Render Blueprint for the Adonai Thrift Store storefront.
+#
+# Everything here is pre-filled so that deploying takes one click and no
+# typing: Render generates APP_KEY for you, and the storefront detects its own
+# public URL, so APP_URL / SITE_URL are optional.
+#
+# The only thing you may add later (Render Dashboard → your service →
+# Environment) is the private store API:
+#   FLASK_API_BASE_URL       = https://your-pos-api.example
+#   FLASK_INTERNAL_API_TOKEN = <token, if your store API needs one>
+# Until then the site runs normally and says the catalog is not connected yet.
+#
+services:
+  - type: web
+    name: adonai-thrift-store
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: frankfurt
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      # Render routes traffic to the port your service listens on. It is
+      # declared here so the container and the platform always agree.
+      - key: PORT
+        value: 10000
+      - key: APP_NAME
+        value: Adonai Thrift Store
+      - key: SESSION_DRIVER
+        value: cookie
+      # Where the shop catalogue is written. Deliberately outside build/, which
+      # is rebuilt from scratch on every deploy. This is a fixed path, not a
+      # setting the owner edits, so declaring it here is safe.
+      - key: ADONAI_DATA_DIR
+        value: /app/storage/data
+      # Where product photos from the phone are kept. Also outside build/, for
+      # the same reason.
+      - key: ADONAI_MEDIA_DIR
+        value: /app/storage/media
+      # The storefront wording (WHATSAPP_NUMBER, CALL_NUMBER, BANNER_TEXT,
+      # DELIVERY_NOTE, HERO_HEADLINE, PROMO_BANNER) is deliberately NOT declared
+      # here. A Blueprint sync overwrites whatever the Blueprint declares, so a
+      # value typed into the dashboard would silently revert on the next Manual
+      # Sync. Render leaves undeclared variables untouched, so these are set
+      # once in the dashboard (Environment -> Add from .env) and then owned by
+      # the shop owner. Defaults live in app/services/site_settings.ts.
+      - key: DB_CONNECTION
+        value: sqlite
+      - key: ANALYTICS_PROVIDER
+        value: none
+      - key: LOG_LEVEL
+        value: info
+      # Render terminates TLS and forwards x-forwarded-proto, so plain-HTTP
+      # visitors are redirected to HTTPS. The /healthz probe is never
+      # redirected, so the platform's health check always passes.
+      - key: FORCE_HTTPS
+        value: true
+      # Render generates a base64-encoded 256-bit value, which is exactly what
+      # AdonisJS expects for APP_KEY. No manual step needed.
+      - key: APP_KEY
+        generateValue: true

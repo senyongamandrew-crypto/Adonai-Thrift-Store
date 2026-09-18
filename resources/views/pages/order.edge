@@ -1,0 +1,67 @@
+@layout('layouts/app')
+
+@section('content')
+<section class="adonai-shell max-w-3xl py-12 sm:py-20">
+  <p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">Order received</p>
+  <h1 class="mt-3 text-4xl font-black tracking-tight sm:text-5xl">Thank you{{ order.customerName ? ', ' + order.customerName : '' }}.</h1>
+  <p class="mt-4 text-base leading-relaxed text-adonai-muted">
+    Your order reference is <strong class="text-adonai-ink">{{ order.id }}</strong>. Keep it — it is how we
+    find your order when you call or message us.
+  </p>
+
+  <div class="mt-8 rounded-3xl border border-adonai-line bg-white p-6 shadow-sm sm:p-8">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h2 class="text-lg font-extrabold">What you ordered</h2>
+      <span class="rounded-full bg-adonai-sand px-3 py-1 text-xs font-bold text-adonai-primary">{{ order.statusLabel }}</span>
+    </div>
+
+    @if(order.lines.length)
+      <ul class="mt-5 divide-y divide-adonai-line">
+        @each(line in order.lines)
+          <li class="flex items-start justify-between gap-4 py-4">
+            <div>
+              <p class="font-bold">{{ line.name }}</p>
+              <p class="mt-1 text-xs text-adonai-muted">{{ line.quantity }} × {{ line.priceLabel }}</p>
+            </div>
+            <p class="whitespace-nowrap font-bold">{{ line.lineTotalLabel }}</p>
+          </li>
+        @endeach
+      </ul>
+    @else
+      <p class="mt-5 text-sm text-adonai-muted">
+        The items on this order are not listed on the website any more, which usually means they have been
+        sold. Call us and we will check the shelf for you.
+      </p>
+    @endif
+
+    @if(order.totalLabel)
+      <div class="mt-5 flex items-center justify-between border-t border-adonai-line pt-5">
+        <p class="font-extrabold">Total</p>
+        <p class="text-xl font-black">{{ order.totalLabel }}</p>
+      </div>
+    @endif
+
+    @if(order.paymentMethod)
+      <p class="mt-4 text-sm text-adonai-muted">Payment: {{ order.paymentMethod }}</p>
+    @endif
+  </div>
+
+  <div class="mt-8 rounded-3xl border border-adonai-line bg-adonai-canvas p-6">
+    <h2 class="text-lg font-extrabold">What happens next</h2>
+    <ol class="mt-4 space-y-3 text-sm leading-relaxed text-adonai-muted">
+      <li><strong class="text-adonai-ink">1.</strong> We confirm the pieces are still on the shelf — every item is one of one.</li>
+      <li><strong class="text-adonai-ink">2.</strong> We call or message you on {{ order.customerPhone || 'the number you gave us' }} to agree a time.</li>
+      <li><strong class="text-adonai-ink">3.</strong> {{ site.deliveryNote }} — you check the pieces before you pay.</li>
+    </ol>
+    <p class="mt-5 text-sm">
+      Any questions? Call <a class="font-bold text-adonai-primary underline" href="{{ site.callLink }}">{{ site.callNumber }}</a>
+      or message <a class="font-bold text-adonai-primary underline" href="{{ site.whatsappLink }}">WhatsApp</a>.
+    </p>
+  </div>
+
+  <div class="mt-8 flex flex-wrap gap-3">
+    <a class="adonai-btn-primary !rounded-md !px-5 !py-3 text-sm" href="/">Keep shopping</a>
+    <a class="adonai-btn-secondary !rounded-md !px-5 !py-3 text-sm" href="/contact">Contact the shop</a>
+  </div>
+</section>
+@endsection

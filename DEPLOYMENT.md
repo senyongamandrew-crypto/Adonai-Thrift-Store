@@ -1,0 +1,541 @@
+# Deploying the Adonai Thrift Store storefront
+
+The storefront is an AdonisJS 7 application that renders Edge views and talks to
+the existing Flask/POS backend over the private server-to-server API. It never
+ships POS credentials, payment secrets or administrator data to the browser.
+
+- Runtime: Node.js 24 (see `engines` in `package.json`)
+- Build output: `build/` (compiled server) and `public/vite/` (compiled CSS/JS)
+- Start command: `node build/bin/server.js`
+- Health probe: `GET /healthz` → `{"status":"ok","catalog":"ok"|"unavailable"}`
+
+Nothing below needs a database: the storefront keeps no catalog of its own.
+
+---
+
+## 1. Environment variables
+
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `NODE_ENV` | yes | `production` on every real deployment |
+| `HOST` | yes | `0.0.0.0` |
+| `PORT` | yes | `10000` in Docker/Render (the port the platform routes to); `3333` for `npm run preview` |
+| `APP_NAME` | yes | `Adonai Thrift Store` |
+| `APP_KEY` | yes | base64 of 32 random bytes — see below |
+| `APP_URL` | optional | public URL, e.g. `https://adonaithrift.example`. Leave empty on a host and the address is taken from each request |
+| `SITE_URL` | optional | usually the same as `APP_URL`; used for canonical links, `sitemap.xml` and Open Graph images |
+| `SESSION_DRIVER` | yes | `cookie` |
+| `FLASK_API_BASE_URL` | optional | private base URL of the Flask/POS API. Without it the storefront runs and says the catalog is not connected yet |
+| `FLASK_INTERNAL_API_TOKEN` | optional | bearer token for the private boundary |
+| `DB_CONNECTION` | yes | `sqlite` (validated for compatibility; unused by the storefront) |
+| `ADONAI_MEDIA_*` | optional | media volume settings |
+| `ANALYTICS_PROVIDER` | yes | `none`, `plausible` or `ga4` |
+| `ANALYTICS_DOMAIN`, `GA4_MEASUREMENT_ID` | optional | only for the chosen provider |
+| `FORCE_HTTPS` | optional | defaults to enabled. Set to `false` only when TLS terminates somewhere that does not forward `x-forwarded-proto` |
+
+Generate an `APP_KEY`:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+```
+
+`.env` is gitignored — set these values in the hosting dashboard, not in Git.
+`.env.test` is committed on purpose: it contains only dummy values used by
+`npm test`.
+
+The application boots with **no `.env` file at all**, which is how hosting
+platforms run it. Only `NODE_ENV`, `HOST`, `PORT`, `APP_NAME`, `APP_KEY`,
+`SESSION_DRIVER`, `DB_CONNECTION`, `LOG_LEVEL` and `ANALYTICS_PROVIDER` are
+required; everything else has a sensible default or degrades gracefully.
+
+To run a production-style instance locally with generated defaults:
+
+```bash
+npm run preview          # or: PORT=8080 npm run preview
+```
+
+> Warning: keep `FLASK_API_BASE_URL` and `FLASK_INTERNAL_API_TOKEN` server side
+> only. They must never appear in a view, a JavaScript file or a public URL.
+
+---
+
+## 2. Docker (any VPS, Fly.io, Railway, Kubernetes)
+
+```bash
+cp .env.example .env          # fill in the real values
+docker compose up --build -d  # serves on http://localhost:3333
+```
+
+Or with plain Docker:
+
+```bash
+docker build -t adonai-storefront .
+docker run -d --name adonai-storefront -p 10000:10000 \
+  --env-file .env \
+  -v adonai-media:/app/storage \
+  adonai-storefront
+```
+
+The image listens on the port given by `PORT` (default `10000`, which is what
+Render routes to). To publish it on another port, pass both together:
+`docker run -e PORT=3333 -p 3333:3333 ...`.
+
+The image runs as a non-root user, and ships a `HEALTHCHECK` that calls
+`/healthz`.
+
+---
+
+## 3. Render (blueprint included — nothing to type)
+
+1. Open the deploy link (same as the README):
+   **https://render.com/deploy?repo=https://github.com/senyongamandrew-crypto/Adonai-Thrift-Store/tree/arena/01a0aaa3-adonai-thrift-store**
+   The `/tree/...` suffix tells Render which branch holds `render.yaml`. After
+   PR #1 is merged into `main` you can drop it and use:
+   `https://render.com/deploy?repo=https://github.com/senyongamandrew-crypto/Adonai-Thrift-Store`
+2. Sign in with GitHub and approve the deployment.
+
+`render.yaml` is pre-filled, so Render never asks for a secret:
+`APP_KEY` is generated automatically (`generateValue: true`), the free plan is
+selected, `/healthz` is the health check, and `APP_URL` / `SITE_URL` are
+deliberately left unset so the site derives its own public URL from each
+request (correct canonical links, sitemap and Open Graph tags on the
+`*.onrender.com` address or on your own domain).
+
+**Later, when the store API is online** — Render Dashboard → your service →
+**Environment** → add:
+
+| Key | Value |
+| --- | --- |
+| `FLASK_API_BASE_URL` | `https://your-pos-api.example` |
+| `FLASK_INTERNAL_API_TOKEN` | your token, if the store API requires one |
+
+Save; Render redeploys and the catalog appears. Adding a custom domain is the
+same screen (**Settings → Custom Domain**); no app changes are needed because the
+site detects the domain it is served from.
+
+## 4. Railway / Fly.io
+
+Both can build the same `Dockerfile`:
+
+```bash
+# Railway
+railway init && railway up
+
+# Fly.io
+fly launch --no-deploy      # accept the existing Dockerfile
+fly secrets set APP_KEY=... APP_URL=https://your-domain FLASK_API_BASE_URL=...
+fly deploy
+```
+
+## 5. Manual VPS deployment (systemd + nginx)
+
+```bash
+git clone git@github.com:senyongamandrew-crypto/Adonai-Thrift-Store.git
+cd Adonai-Thrift-Store
+npm ci
+npm run build
+cp .env.example .env && nano .env      # production values
+```
+
+`/etc/systemd/system/adonai-storefront.service`:
+
+```ini
+[Unit]
+Description=Adonai Thrift Store storefront
+After=network.target
+
+[Service]
+WorkingDirectory=/var/www/Adonai-Thrift-Store
+ExecStart=/usr/bin/node build/bin/server.js
+EnvironmentFile=/var/www/Adonai-Thrift-Store/.env
+Restart=always
+User=www-data
+
+[Install]
+WantedBy=multi-user.target
+```
+
+nginx reverse proxy (keep `X-Forwarded-Proto` so the HTTPS redirect and cookies
+behave):
+
+```nginx
+server {
+  listen 443 ssl http2;
+  server_name adonaithrift.example;
+
+  location / {
+    proxy_pass http://127.0.0.1:3333;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+  }
+}
+```
+
+Finally:
+
+```bash
+sudo systemctl enable --now adonai-storefront
+```
+
+---
+
+## 6. Rebuilds and cache busting
+
+CSS and JavaScript are hashed by Vite. Run `npm run build` (or rebuild the
+Docker image) whenever `resources/`, `app/`, `config/` or the views change —
+`webmanifest`/`manifest` references are read from `public/vite/.vite/manifest.json`
+at boot, so a build is required before the server starts in production.
+
+## 7. Operating the storefront while the POS API is down
+
+- `/` keeps rendering and shows an honest "catalog is momentarily unavailable"
+  notice instead of an empty catalog.
+- Product URLs answer `503` (temporary) rather than `404`, so search engines do
+  not drop indexed products during an outage.
+- `/healthz` still answers `200` with `"catalog":"unavailable"`, so the platform
+  does not kill the container because of a backend issue.
+- `/healthz` is **never** redirected to HTTPS, so a platform health probe that
+  arrives over plain HTTP cannot fail the deploy.
+- Account, contact and checkout submissions surface the backend error instead of
+  pretending the order was captured.
+
+---
+
+## Connecting the phone till
+
+The Android till (`com.adonai.pos`) keeps working offline, then uploads through
+this service. Point it at the site and the two stay in step.
+
+1. Open the till's **Admin Suite**.
+2. Go to **Workspace & team → Shared server connection**.
+3. In **POS server URL**, type your site address exactly, with no trailing slash:
+   `https://adonai-thrift-store-hqg3.onrender.com`
+4. Tap **Test connection**. It asks for `GET /api/health` and expects JSON back.
+5. Enter the shop PIN when the till asks — the same PIN as the intake screen.
+
+Never type `localhost` or `127.0.0.1` into the till: those mean *the phone
+itself*, which is why they always fail.
+
+### If the till says "Failed to fetch"
+
+Check in this order, because the message is the same for all of them:
+
+1. **Is the site awake?** On the free plan the service sleeps after fifteen idle
+   minutes and takes about a minute to wake. Open the website in a browser first.
+2. **Is the address exactly right?** `https`, no trailing slash, no `/pos` on the
+   end.
+3. **Does the PIN match?** Set `ADMIN_PIN` in the dashboard, or leave it unset and
+   use `7890`.
+
+The phone cannot show more than that — it has no console. The website's own
+`/api/health` is the same check made from somewhere you can see the answer.
+
+### What the phone can and cannot do
+
+| The till does this | This service |
+| --- | --- |
+| Adds, edits and deletes stock | Writes it to the shared catalogue; the website updates at once |
+| Marks a piece sold | Hides it from customers, keeps it in your records |
+| Uploads product photos from the camera | Stores them under `ADONAI_MEDIA_DIR` and serves them at `/media/...` |
+| Records orders and customer details | Keeps them on the server; **they are never published** |
+| Assigns a driver and saves GPS | Stores the last position and serves the delivery dashboard |
+| Prints receipts and tags | Done entirely on the phone |
+
+Two things to know about the free plan:
+
+- **Photos do not survive a restart**, because they live on the temporary disk
+  and are too large to snapshot. The catalogue itself does survive, and a listing
+  whose photo has gone is shown without a picture rather than as a broken image.
+  Pasting a photo link into the intake screen avoids this, and so does the paid
+  plan with a disk.
+- **Orders and customer details are never snapshotted.** They contain personal
+  information about your customers, so they stay on the server. Download them from
+  the intake screen if you need a copy.
+
+## Listing pieces: the shop intake screen
+
+The storefront and the catalogue live in the same service, so there is no second
+system to keep in step. Pieces added on the intake screen appear on the website
+immediately.
+
+1. Open **https://<your-site>/shop/intake**
+2. Enter the shop PIN. Until `ADMIN_PIN` is set in the dashboard, the PIN is
+   **7890**, and the screen shows a reminder to change it.
+3. Fill in the name (the only required field), a price in UGX and a photo link,
+   then tap **Add to the website**.
+
+Each piece in the list can be edited, marked **sold** (hidden from customers but
+kept for your records) or deleted. **Download my catalogue** saves a JSON backup
+you can keep on your phone; pasting it back and saving restores everything.
+
+### The API behind it
+
+| Route | Method | Who can call it |
+| --- | --- | --- |
+| `/api/health` | GET | anyone — devices use it to check the address |
+| `/api/products` | GET | anyone. `?includeUnavailable=true` also returns sold pieces |
+| `/api/products/:id` | GET | anyone |
+| `/api/products` | POST | shop PIN — add a piece |
+| `/api/products/:id` | PUT | shop PIN — change a piece |
+| `/api/products/:id` | DELETE | shop PIN — remove a piece |
+| `/api/orders`, `/api/contact` | POST | anyone — used by checkout and the contact form |
+
+The PIN is sent as `x-adonai-pin: <pin>` or `Authorization: Bearer <pin>`. A
+device can be pointed at this address and will work on its own, because CSRF
+protection is deliberately switched off for `/api/*` (a machine has no browser
+session) and the PIN guards the writes instead.
+
+### Where the catalogue is stored, and what that means
+
+`storage/data/catalogue.json` holds the pieces; `storage/data/records.json` holds
+orders and contact messages. **Orders and messages never leave the server** —
+they contain customer details.
+
+Free hosting gives the service a **fresh, empty disk whenever it restarts**, so
+the catalogue is also mirrored into this repository:
+
+- `.github/workflows/catalogue-snapshot.yml` copies the live catalogue into the
+  `data/catalogue` branch every fifteen minutes. The workflow runs on the
+  **default branch** only, so it starts working once this work is merged into
+  `main`.
+- On a cold start, `start/catalogue.ts` restores an empty catalogue from that
+  published file.
+
+That combination means nothing is lost, with one exception: pieces added after
+the most recent snapshot are gone if the service restarts before the next one
+(up to fifteen minutes). **Download my catalogue** from the intake screen remains
+the manual safety net, and it is the only backup you need while the site runs on
+the free plan.
+
+When the shop is ready for guaranteed storage, add a database and set
+`DATABASE_URL`: the catalogue then lives in Postgres instead of on the temporary
+disk, and the snapshot becomes a second layer rather than the only one. That is
+the point at which the free plan stops being a compromise.
+
+## Putting the store on your own domain
+
+The `onrender.com` address keeps working either way, so nothing breaks while the
+domain is being set up. Custom domains are included in Render's Hobby plan (2 per
+workspace) and TLS certificates are issued automatically.
+
+A domain must be registered in the shop owner's own name, at a registrar, for
+roughly 10-15 USD per year. A domain name cannot contain spaces, so
+"adonai thrift store" becomes one of:
+
+- `adonaithriftstore.com` — easiest to say out loud
+- `adonai-thrift-store.com` — easier to read
+
+### 1. Register the name
+
+Buy it from a registrar (Namecheap, Porkbun, GoDaddy, Cloudflare Registrar, ...).
+Check the renewal price, not only the first-year price, and make sure the domain
+is registered in your own account — never in someone else's.
+
+### 2. Add it in Render
+
+1. Open the service, then **Settings** in the left pane.
+2. Scroll to **Custom Domains**, click **+ Add Custom Domain**, and enter the
+   domain, for example `adonaithriftstore.com`.
+3. Click **Save**. Render automatically adds the matching `www` entry and
+   redirects one to the other.
+
+The service also keeps its `onrender.com` subdomain, so the old address stays a
+permanent fallback (it can be disabled later under the same settings).
+
+### 3. Point DNS at Render
+
+At the registrar's DNS panel, **delete any `AAAA` records** (Render is IPv4 only),
+then add:
+
+| Type | Host | Value |
+| --- | --- | --- |
+| `A` | `@` (the root domain) | `216.24.57.1` |
+| `CNAME` | `www` | `adonai-thrift-store-hqg3.onrender.com` |
+
+The dashboard shows these exact values — use whatever it displays. If the
+provider supports `ANAME`/`ALIAS` records, those may be used for the root domain
+instead of the `A` record. On Cloudflare the root must use a `CNAME` (proxying
+off until verification completes).
+
+### 4. Verify and wait for the certificate
+
+Return to **Settings -> Custom Domains** and click **Verify** next to the domain.
+Render then issues a TLS certificate. DNS propagation usually takes minutes but
+can take a few hours; HTTP visitors are redirected to HTTPS automatically.
+
+### 5. Tell the app its public address
+
+Once the domain resolves, set the site URL so canonical links, Open Graph tags
+and `sitemap.xml` all use the new address instead of the request host:
+
+```
+SITE_URL=https://adonaithriftstore.com
+```
+
+Add it under **Environment** in the dashboard (see the section above). Without it
+the storefront still works everywhere — it detects the host automatically — but
+search engines are happier with one canonical address.
+
+## A control appears to do nothing: the cookie banner stays on screen
+
+Symptom: tapping **Accept** on the cookie banner leaves it visible, on every page.
+
+Tailwind ships `[hidden]:where(...) { display: none }` in its base layer. The
+banner's own class sets `display: flex`, and both selectors have the same
+specificity (0,1,0) — but the components layer is emitted later, so `flex` wins
+and the `hidden` attribute set by the script has no visual effect.
+
+`resources/css/app.css` therefore carries:
+
+```css
+.adonai-cookie-banner[hidden] {
+  display: none;
+}
+```
+
+The same trap applies to any element that combines a display-setting class with
+the `hidden` attribute. Elements toggled with the `hidden` **utility class**
+instead (search results, carousel slides) are unaffected, because utilities are
+emitted after components.
+
+`tests/unit/cookie_banner.spec.ts` fails if the guard or the attribute is
+removed, and both the cookie plus a localStorage mirror record the consent so the
+banner does not return when cookies are blocked (private mode, embedded preview).
+
+## Changing the shop details without touching code
+
+The storefront wording is driven by environment variables, so the shop owner can
+change a phone number, the headline, the delivery promise or a promotion from
+the Render Dashboard. Nothing here is baked into the site at build time: saving
+the values and redeploying is enough, and **Save and deploy** (rather than a
+full rebuild) is the quickest option.
+
+| Variable | Controls | Built-in value when blank |
+| --- | --- | --- |
+| `WHATSAPP_NUMBER` | Every WhatsApp link and label, site wide | `+256765652403` |
+| `CALL_NUMBER` | Every tap-to-call link and label | `+256748992964` |
+| `BANNER_TEXT` | Opening sentence of the strip at the top of every page | `Shop locally in Kampala.` |
+| `DELIVERY_NOTE` | The short delivery promise beside the contact banner | `Kampala delivery available` |
+| `HERO_HEADLINE` | The large headline on the home and shop pages | `Handpicked Grade-A Thrift and Vintage Clothing in Kampala` |
+| `PROMO_BANNER` | A promotion strip above the contact banner. Blank hides it | *(hidden)* |
+
+Phone numbers can be written in any of these shapes — the links are rebuilt from
+the digits:
+
+```
++256765652403    +256 765 652 403    256765652403    0765 652 403
+```
+
+A missing or blank value always falls back to the built-in value, so a cleared
+field can never blank out a phone number or a headline.
+
+### Steps in the dashboard (works on a phone)
+
+1. Open the service, then click **Environment** in the left pane.
+2. Under **Environment Variables**, click **Add from .env** and paste:
+
+   ```
+   WHATSAPP_NUMBER=+256765652403
+   CALL_NUMBER=+256748992964
+   BANNER_TEXT="Shop locally in Kampala."
+   DELIVERY_NOTE="Kampala delivery available"
+   HERO_HEADLINE="Handpicked Grade-A Thrift and Vintage Clothing in Kampala"
+   PROMO_BANNER=""
+   ```
+
+   (`+ Add Environment Variable` adds them one at a time instead.)
+3. Choose **Save and deploy**. The site restarts with the new values in about a
+   minute, and no rebuild is needed.
+4. Edit any single value later by tapping it, and save again with **Save and
+   deploy**.
+
+Values with spaces must be wrapped in quotes; `.env` syntax otherwise rejects
+them.
+
+**Do not add these to `render.yaml`.** A Blueprint sync overwrites whatever the
+Blueprint declares, so a value typed in the dashboard would revert on the next
+**Manual Sync**. Render leaves undeclared variables untouched, which is why this
+list lives in the dashboard only.
+
+## Troubleshooting a failed deploy
+
+**"Exited with status 1 while building your code" — the build dies at `npm run build`**
+
+First thing to check: `tests/` must stay in the Docker build context. The
+TypeScript project compiles every `.ts` file, and `bin/test.ts` imports
+`../tests/bootstrap.js`. If `.dockerignore` excludes `tests`, the build fails
+with:
+
+```
+bin/test.ts(46,53): error TS2307: Cannot find module '../tests/bootstrap.js'
+Cannot complete the build process as there are TypeScript errors.
+```
+
+The failure only shows up inside Docker — local builds, CI and `node ace test`
+all pass, because they always have `tests/` on disk. That is why `.dockerignore`
+carries a comment telling you not to ignore it.
+
+Another cause of the same symptom: hosting platforms pass your service's environment variables
+into the image build, so `NODE_ENV=production` is visible while `npm ci` runs.
+npm then silently omits **devDependencies**, which is where the build toolchain
+lives (vite, tailwindcss, TypeScript, the ace CLI). The build fails with
+`ERR_MODULE_NOT_FOUND` and a bare `exit code 1`.
+
+The `Dockerfile` guards against this with `ENV NODE_ENV=development` and
+`npm ci --include=dev` in the build stage, while the runtime stage still runs as
+`NODE_ENV=production`. Keep both flags if you edit that file.
+
+The build stage also installs **no C/C++ toolchain**. The storefront keeps no
+database of its own, so `@adonisjs/lucid` and `better-sqlite3` were removed from
+`package.json`: nothing imported them, there was no `config/database.ts`, and the
+Lucid provider was never registered. Dropping them removed the only step that
+compiled C++ during the image build — the slowest, most memory-hungry part, and a
+common cause of failures on a 512 MB free instance. `npm ci` now performs zero
+`node-gyp` runs.
+
+If a future dependency does need compiling, restore the toolchain in the build
+stage (the commented block in the `Dockerfile`) and pass `--nodedir=/usr/local`
+to `npm ci`, so node-gyp uses the headers already inside the Node image instead
+of downloading them from `nodejs.org`.
+
+**"Create web service ... Failed deploy" with a health-check error**
+
+Check `GET /healthz` first. Render requires a `200` from the health check path;
+anything else (including a `3xx` redirect) marks the deploy as failed. The
+middleware in `app/middleware/force_https_middleware.ts` therefore always serves
+`/healthz` and only redirects when the request proves it arrived over plain HTTP.
+
+**The service logs "started HTTP server on 0.0.0.0:PORT" but Render says it is
+unreachable**
+
+The container port must match the port Render routes to. This image listens on
+`PORT` (declared as `10000` in both the `Dockerfile` and `render.yaml`). If you
+change one, change the other.
+
+**The service deploys, but the site is blank / every page returns 500**
+
+Check the logs for:
+
+```
+EdgeError: Missing manifest file. Make sure to first create a build
+   at .../resources/views/layouts/app.edge:36
+```
+
+`line 36` of the layout is the `@vite([...])` tag. The Vite service reads
+`config/vite.ts` -> `manifestFile` with plain `fs` calls, so a **relative** path
+is resolved against the process working directory, not the application root.
+That works locally (the app is usually started from the project root, where
+`public/vite` exists) but fails in the production container, which contains only
+the built output.
+
+`manifestFile` therefore uses `app.makePath(...)`, which resolves against the
+application root — in production the root is `build/`, where `ace build` copies
+`public/**` as a meta file. Keep that call if you edit the config.
+
+**Re-running a failed Blueprint sync**
+
+The Blueprint is linked to a branch. After pushing a fix, open the Blueprint in
+the Render Dashboard and click **Manual Sync**, or open the service and click
+**Retry deploy**. Both rebuild from the latest commit on that branch.

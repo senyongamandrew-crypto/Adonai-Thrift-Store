@@ -1,0 +1,27 @@
+# Files excluded from the Docker build context.
+#
+# Keep in mind that anything listed here is invisible to "npm run build".
+# The TypeScript project compiles every .ts file in the repo, and bin/test.ts
+# imports ../tests/bootstrap.js — so "tests" must NOT be ignored, or the build
+# fails with:
+#   bin/test.ts(46,53): error TS2307: Cannot find module '../tests/bootstrap.js'
+#   Cannot complete the build process as there are TypeScript errors.
+#
+node_modules
+build
+.git
+.github
+# Local and example env files. ".env" is supplied by the hosting platform.
+.env
+.env.*
+!.env.example
+!.env.test
+# Built assets are regenerated inside the image.
+public/vite
+storage
+coverage
+# Docs and editor leftovers.
+*.md
+!README.md
+*.log
+.DS_Store
