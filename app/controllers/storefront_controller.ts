@@ -17,6 +17,23 @@ import {
 const categories = ['Tops', 'Dresses', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories']
 
 /**
+ * Whether a thrown error is the validator refusing the form, rather than
+ * something genuinely broken (a dead catalogue, a bad database write). Only the
+ * first kind is the customer's to fix, and only the first kind is caught here.
+ */
+function isValidationFailure(error: unknown): boolean {
+  const code = (error as { code?: string })?.code
+  return code === 'E_VALIDATION_ERROR' || code === 'E_VALIDATION_FAILURE'
+}
+
+/** The field names the validator complained about, in the order they arrived. */
+function failedFields(error: unknown): string[] {
+  const messages = (error as { messages?: { field: string }[] })?.messages
+  if (!Array.isArray(messages)) return []
+  return [...new Set(messages.map((message) => message.field).filter(Boolean))]
+}
+
+/**
  * Choose the piece the home page leads with, and only when the shop's own data
  * gives it a reason to be there: it is marked new, or it carries a real previous
  * price. Returns null when no piece qualifies, and the section is then left out
@@ -272,8 +289,15 @@ export default class StorefrontController {
   async checkoutPage(ctx: HttpContext) {
     const { request, view } = ctx as StorefrontHttpContext
     return view.render('pages/checkout', {
-      ...this.sharedViewData(request),
+      ...this.sharedViewData(request, '/checkout'),
       pageTitle: 'Checkout · Adonai Thrift Store',
+      noIndex: true,
+      /**
+       * A first visit has nothing to remember and nothing to complain about, but
+       * the form reads both, so they are always objects rather than undefined.
+       */
+      values: {},
+      errors: {},
     })
   }
 
@@ -334,12 +358,116 @@ export default class StorefrontController {
     return response.redirect().back()
   }
 
+  /**
+   * One plain sentence per checkout field, in the shop's own voice.
+   *
+   * The validator's own wording ("The address field must be defined") is written
+   * for programmers. These say the same thing but tell the customer what to do,
+   * and they are the same sentences the browser uses, so a customer is never
+   * told the same mistake two different ways.
+   */
+  /**
+   * The pieces in the customer's bag, written into the order.
+   *
+   * The website used to send only the delivery details, so the order reached the
+   * till with an empty basket and no total — the shop could see that somebody had
+   * ordered, but not what. Each line now carries the name and the price of the
+   * piece as the shop has it, so the POS queue shows a real basket.
+   *
+   * Prices come from the catalogue, never from the browser: a bag left open on a
+   * phone for a week must not be able to decide what a jacket costs today. A piece
+   * that has since sold or been withdrawn is left out rather than invented.
+   */
+  private async describeBasket(
+    payload: Record<string, unknown>,
+    storefront: StorefrontHttpContext['storefront']
+  ): Promise<Record<string, unknown>> {
+    const lines = Array.isArray(payload.items) ? payload.items : []
+    if (!lines.length) return {}
+
+    const items: { productId: string; name: string; price: number; quantity: number }[] = []
+
+    for (const line of lines) {
+      const entry = (line || {}) as Record<string, unknown>
+      const productId = String(entry.productId || '').trim()
+      const quantity = Math.min(10, Math.max(1, Number(entry.quantity) || 1))
+      if (!productId) continue
+
+      let product: Record<string, unknown> | null = null
+      try {
+        product = await storefront.catalogService.findAvailableProduct(productId)
+      } catch {
+        product = null
+      }
+      if (!product) continue
+
+      items.push({
+        productId,
+        name: String(product.name || 'Piece'),
+        price: Number(product.price) || 0,
+        quantity,
+      })
+    }
+
+    if (!items.length) return {}
+    return {
+      items,
+      total: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    }
+  }
+
+  private checkoutMessages: Record<string, string> = {
+    name: 'Enter the full name of the person receiving the pieces.',
+    phone: 'Enter a phone number we can call, for example 0748 992 964.',
+    email:
+      'That email address does not look right. Leave it empty if you would rather not give one.',
+    address: 'Enter the delivery address — a street, a building or a landmark we can find.',
+    city: 'Enter the city or area, for example Kampala.',
+    note: 'Keep the note under 300 characters.',
+    paymentMethod: 'Choose Mobile money or Cash on delivery.',
+    terms: 'Tick the box to accept the terms, then place your order.',
+  }
+
   async checkout(ctx: HttpContext) {
-    const { request, response, storefront } = ctx as StorefrontHttpContext
-    const payload = await checkoutValidator.validate(request.all())
-    const order = await storefront.orderService.createFromCheckout(payload)
-    storefront.forwardSessionCookies(response)
-    return response.redirect().toPath(`/orders/${order.id}`)
+    const { request, response, view, storefront } = ctx as StorefrontHttpContext
+
+    /**
+     * A mistake on this form used to throw the customer back to a blank page —
+     * every field they had filled in was wiped, and the only thing left was a red
+     * line. That is the worst possible moment to lose a customer's work: they
+     * have already chosen their pieces and typed their address.
+     *
+     * So the page is re-rendered here, in this request, with what they typed and
+     * one plain red line per field. Nothing is lost, and fixing a field takes one
+     * correction rather than the whole form again.
+     */
+    try {
+      const payload = await checkoutValidator.validate(request.all())
+      const order = await storefront.orderService.createFromCheckout({
+        ...payload,
+        ...(await this.describeBasket(payload, storefront)),
+      })
+      storefront.forwardSessionCookies(response)
+      return response.redirect().toPath(`/orders/${order.id}`)
+    } catch (error) {
+      if (!isValidationFailure(error)) throw error
+
+      const submitted = request.all() as Record<string, unknown>
+      const errors: Record<string, string> = {}
+      for (const field of failedFields(error)) {
+        errors[field] =
+          this.checkoutMessages[field] || 'That does not look right — please check it.'
+      }
+
+      response.status(422)
+      return view.render('pages/checkout', {
+        ...this.sharedViewData(request, '/checkout'),
+        pageTitle: 'Checkout · Adonai Thrift Store',
+        noIndex: true,
+        values: submitted,
+        errors,
+      })
+    }
   }
 
   /**

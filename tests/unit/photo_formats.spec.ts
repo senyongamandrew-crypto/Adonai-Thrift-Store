@@ -86,6 +86,27 @@ test.group('Photo formats', () => {
 
     assert.include(view, 'enctype="multipart/form-data"', 'a file cannot be sent without it')
     assert.include(view, 'accept="image/*"', 'the phone must offer camera and gallery')
-    assert.include(controller, "request.file('photo'", 'the upload must be read off the form')
+    assert.include(controller, "request.files('photos'", 'the uploads must be read off the form')
+  })
+
+  /**
+   * One photo of a jacket shows the least convincing part of it. A customer
+   * buying second-hand wants the front, the back, the label and the wear, so the
+   * intake form has to take several photos and the listing has to carry them all
+   * — dropping back to a single photo would quietly undo the point.
+   */
+  test('a piece can be listed with several angles', ({ assert }) => {
+    const view = readFileSync(app.makePath('resources/views/pages/admin/products.edge'), 'utf8')
+    const controller = readFileSync(app.makePath('app/controllers/admin_controller.ts'), 'utf8')
+    const detail = readFileSync(
+      app.makePath('resources/views/components/product_detail.edge'),
+      'utf8'
+    )
+
+    assert.include(view, 'name="photos"', 'the form must post the photos field')
+    assert.include(view, 'multiple', 'one file at a time is the thing being fixed')
+    assert.include(controller, 'photos.urls[0]', 'the first photo leads the listing')
+    assert.include(controller, 'payload.gallery = photos.urls', 'every photo is the gallery')
+    assert.include(detail, 'data-carousel', 'the customer pages through them on the product page')
   })
 })

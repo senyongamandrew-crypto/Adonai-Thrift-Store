@@ -95,7 +95,15 @@ router.post('/api/catalog/hold', [PosApiController, 'holdCatalogItem'])
 router.post('/api/catalog/release', [PosApiController, 'releaseCatalogItem'])
 
 router.post('/api/customers', [PosApiController, 'upsertCustomer'])
+/** The till's tracking screen reads this address; only a POST used to answer. */
+router
+  .get('/api/customers', [PosApiController, 'customerTrackingPlain'])
+  .as('pos.customers.tracking')
+router
+  .get('/api/pos/customers', [PosApiController, 'customerTrackingPlain'])
+  .as('pos.customers.alias')
 router.post('/api/storefront-events', [PosApiController, 'storefrontEvent'])
+router.get('/api/storefront-events', [PosApiController, 'storefrontEvents'])
 router.get('/api/admin/customer-tracking', [PosApiController, 'customerTracking'])
 
 router.get('/api/deliveries/active', [PosApiController, 'activeDeliveries'])

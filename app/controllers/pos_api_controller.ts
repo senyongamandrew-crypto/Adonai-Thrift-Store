@@ -251,24 +251,55 @@ export default class PosApiController {
   async listOrders({ request, response }: HttpContext) {
     const id = String(request.input('id') || request.input('orderId') || '').trim()
     const phone = String(request.input('phone') || '').trim()
-    if (!id && !phone) {
-      return response
-        .status(400)
-        .send({ ok: false, error: 'Give an order number or a phone number.' })
+    const status = String(request.input('status') || '')
+      .trim()
+      .toLowerCase()
+
+    /**
+     * Asking for the queue with no filter used to be answered with 400 "Give an
+     * order number or a phone number." That is exactly what the till's basket
+     * panel asks for, so the panel was told the website had no orders and showed
+     * an empty basket — while the orders sat in the file unread.
+     *
+     * No filter now means "the whole queue", newest first. A filter still filters.
+     */
+    let orders = this.store().allOrdersWithDriver()
+
+    if (id) orders = orders.filter((order) => order.id.toLowerCase() === id.toLowerCase())
+    if (phone) {
+      orders = orders.filter((order) => {
+        const details = order.customer as Record<string, unknown>
+        return String(details?.phone || '').trim() === phone
+      })
+    }
+    if (status && status !== 'all') {
+      /**
+       * The panel's "open" means everything still needing a rider. The till and
+       * the website both call those orders "received" and "dispatched".
+       */
+      const wanted =
+        status === 'open' || status === 'active' || status === 'pending'
+          ? ['received', 'dispatched']
+          : [status]
+      orders = orders.filter((order) => wanted.includes(String(order.status || '').toLowerCase()))
     }
 
-    const orders = this.store()
-      .allOrders()
-      .filter((order) => {
-        if (id && order.id.toLowerCase() === id.toLowerCase()) return true
-        if (phone) {
-          const details = order.customer as Record<string, unknown>
-          return String(details?.phone || '').trim() === phone
-        }
-        return false
-      })
+    const all = this.store().allOrders()
+    const countBy = (value: string) =>
+      all.filter((order) => String(order.status || '').toLowerCase() === value).length
 
-    return response.status(200).send({ ok: true, count: orders.length, orders })
+    return response.status(200).send({
+      ok: true,
+      count: orders.length,
+      total: all.length,
+      counts: {
+        received: countBy('received'),
+        dispatched: countBy('dispatched'),
+        delivered: countBy('delivered'),
+        cancelled: countBy('cancelled'),
+      },
+      orders,
+    })
   }
 
   /* ------------------------------------------------------------------ holds */
@@ -345,11 +376,56 @@ export default class PosApiController {
     if (!this.authorised(ctx)) return this.unauthorised(response)
 
     const limit = Number(request.input('limit')) || 100
-    return response.status(200).send({
-      ok: true,
-      customers: this.store().listCustomers(),
-      events: this.store().listEvents(limit),
-    })
+    return response.status(200).send({ ok: true, ...this.customerTrackingPayload(limit) })
+  }
+
+  /**
+   * The same tracking figures under the plain name the till asks for.
+   *
+   * The till's "Customer tracking" screen reads GET /api/customers, but only a
+   * POST was ever served at that address — so the request fell through to the
+   * website's HTML 404 page and the screen sat at "Sync unavailable" with every
+   * counter on zero. The address the app already uses is served here, rather
+   * than asking the shop to update an app I cannot rebuild.
+   */
+  async customerTrackingPlain(ctx: HttpContext) {
+    const { request, response } = ctx
+    if (!this.authorised(ctx)) return this.unauthorised(response)
+
+    const limit = Number(request.input('limit')) || 100
+    return response.status(200).send({ ok: true, ...this.customerTrackingPayload(limit) })
+  }
+
+  /**
+   * Website activity, readable back.
+   *
+   * The website POSTs its events here; the till asks for them with a GET, which
+   * was never served. These are the counts the tracking screen shows.
+   */
+  async storefrontEvents(ctx: HttpContext) {
+    const { request, response } = ctx
+    if (!this.authorised(ctx)) return this.unauthorised(response)
+
+    const limit = Number(request.input('limit')) || 100
+    const events = this.store().listEvents(limit)
+    return response.status(200).send({ ok: true, count: events.length, events })
+  }
+
+  /**
+   * One shape for the tracking numbers, so the two addresses that serve them can
+   * never drift apart. The counts are included because the screen shows a number
+   * per card, and a missing field is what makes a panel invent a zero.
+   */
+  private customerTrackingPayload(limit: number) {
+    const customers = this.store().listCustomers()
+    const events = this.store().listEvents(limit)
+    return {
+      count: customers.length,
+      customers,
+      eventCount: events.length,
+      events,
+      syncedAt: new Date().toISOString(),
+    }
   }
 
   /* -------------------------------------------------------------- deliveries */
@@ -357,7 +433,7 @@ export default class PosApiController {
   async activeDeliveries(ctx: HttpContext) {
     const { response } = ctx
     if (!this.authorised(ctx)) return this.unauthorised(response)
-    return response.status(200).send({ ok: true, ...this.store().activeDeliveries() })
+    return response.status(200).send({ ok: true, ...this.store().activeDeliveriesWithDriver() })
   }
 
   async drivers(ctx: HttpContext) {

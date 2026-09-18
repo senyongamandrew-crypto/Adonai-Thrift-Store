@@ -141,10 +141,9 @@ export default class AdminController {
       return response.redirect().back()
     }
 
-    const photo = this.attachPhoto(request)
-    if (photo.url) payload.image = photo.url
-    if (photo.error)
-      session.flash('warning', `${photo.error} The piece was saved without that photo.`)
+    const photos = this.attachPhotos(request)
+    this.applyPhotos(payload, photos)
+    if (photos.error) session.flash('warning', `${photos.error} The piece was saved without it.`)
 
     const product = this.store().addProduct(payload)
     return response.redirect().toPath(`/shop/intake?added=${encodeURIComponent(product.id)}`)
@@ -174,9 +173,9 @@ export default class AdminController {
 
     const payload = this.productFrom(request.all() as Record<string, unknown>)
 
-    const photo = this.attachPhoto(request)
-    if (photo.url) payload.image = photo.url
-    if (photo.error) session.flash('warning', `${photo.error} The rest of the change was saved.`)
+    const photos = this.attachPhotos(request)
+    this.applyPhotos(payload, photos)
+    if (photos.error) session.flash('warning', `${photos.error} The rest of the change was saved.`)
 
     const updated = this.store().updateProduct(id, payload)
     if (!updated) {
@@ -230,65 +229,85 @@ export default class AdminController {
   }
 
   /**
-   * A photo chosen from the phone, if one was attached to the form.
+   * The photos chosen from the phone, if any were attached to the form.
    *
-   * It is saved through the same store the till uses, so a photo added here and
-   * one added by the POS app end up in the same folder and are served the same
+   * More than one is the point: someone buying second-hand wants to see the
+   * front, the back, the label and the wear. A listing showing one photo of a
+   * jacket shows the least convincing part of it. So the first photo chosen is
+   * the one the listing leads with, and every photo goes into the gallery the
+   * product page pages through.
+   *
+   * They are saved through the same store the till uses, so photos added here
+   * and photos added by the POS app end up in one folder and are served the same
    * way at /media/...
    *
-   * Returns nothing when no file was attached, which leaves any existing photo
-   * alone. Returns an error when a file was attached but could not be used, so
-   * the shop is told rather than left wondering why the photo never appeared.
+   * One bad file in a batch never costs the shop the good ones: everything that
+   * can be saved is saved, and the shop is told about the rest.
    */
-  private attachPhoto(request: HttpContext['request']): { url?: string; error?: string } {
-    const upload = request.file('photo', {
-      size: maxUploadBytes(),
-      extnames: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-    })
-
-    if (!upload) return {}
-
-    if (!upload.isValid) {
-      /**
-       * The parser's own wording is written for programmers ("Invalid file
-       * extension undefined"). This is a shopkeeper standing in a doorway, so
-       * the two things they can act on are named instead: the four formats and
-       * the size ceiling.
-       */
-      const megabytes = Math.round(maxUploadBytes() / (1024 * 1024))
-      const reason = upload.errors[0]?.type
-      return {
-        error:
-          reason === 'size'
-            ? `That photo is bigger than ${megabytes} MB, which is the most the website can store. Set the camera to a smaller size, or choose a different photo.`
-            : `That file is not a photo the website can store. Photos need to be a JPEG, PNG, WebP or GIF, under ${megabytes} MB.`,
-      }
-    }
-
-    const temporaryPath = upload.tmpPath
-    if (!temporaryPath) return { error: 'The photo did not arrive. Please try again.' }
-
-    const bytes = readFileSync(temporaryPath)
-    if (bytes.length === 0) return { error: 'That photo was empty. Please try again.' }
-
-    /**
-     * The format is taken from the file itself, not from what the phone said:
-     * the multipart parser reports "image" and leaves the rest out, which is not
-     * a type a browser will draw.
+  private attachPhotos(request: HttpContext['request']): { urls: string[]; error?: string } {
+    /*
+     * No size or format options are handed to the parser here, deliberately. When
+     * they are, the parser silently drops a file it does not like and hands back a
+     * shorter list, so an oversized photo arrived as "no photo was chosen at all"
+     * — the shop was told nothing and simply wondered where the picture went.
+     * Deciding here means every rejected photo gets a sentence a shopkeeper can
+     * act on. The request as a whole is still capped by the body parser.
      */
-    const contentType = resolveImageContentType(bytes, upload.type)
-    if (!contentType) {
-      return { error: 'That file is not a photo. Use a JPEG, PNG, WebP or GIF.' }
+    const uploads = request.files('photos')
+    if (!uploads.length) return { urls: [] }
+
+    const limit = maxUploadBytes()
+    const megabytes = Math.round(limit / (1024 * 1024))
+    const urls: string[] = []
+    let error: string | undefined
+
+    for (const upload of uploads) {
+      const temporaryPath = upload.tmpPath
+      if (!temporaryPath) {
+        error = 'One photo did not arrive. Please try it again.'
+        continue
+      }
+
+      const bytes = readFileSync(temporaryPath)
+
+      if (bytes.length > limit) {
+        error = `One photo was bigger than ${megabytes} MB, which is the most the website can store. Try one under ${megabytes} MB.`
+        continue
+      }
+
+      if (bytes.length === 0) {
+        error = 'One photo was empty. Please try it again.'
+        continue
+      }
+
+      /*
+       * The format is taken from the file itself, not from what the phone said:
+       * the multipart parser reports "image" and leaves the rest out, which is not
+       * a type a browser will draw.
+       */
+      const contentType = resolveImageContentType(bytes, upload.type)
+      if (!contentType) {
+        error = `One file was not a photo the website can store. Photos must be a JPEG, PNG, WebP or GIF, under ${megabytes} MB.`
+        continue
+      }
+
+      urls.push(saveImage(bytes, contentType).url)
     }
 
-    const saved = saveImage(bytes, contentType)
-    return { url: saved.url }
+    return error ? { urls, error } : { urls }
   }
 
   /**
-   * Turn a submitted form into the fields the store understands. Empty inputs
-   * are left out so editing one field never wipes the others.
+   * Put the chosen photos on the piece: the first leads, all of them are the
+   * gallery. Doing nothing when no photo was chosen is what keeps a piece's
+   * existing photos when the shop only comes back to change a price.
    */
+  private applyPhotos(payload: ProductInput, photos: { urls: string[] }): void {
+    if (!photos.urls.length) return
+    payload.image = photos.urls[0]
+    payload.gallery = photos.urls
+  }
+
   private productFrom(input: Record<string, unknown>): ProductInput {
     const payload: ProductInput = {}
 

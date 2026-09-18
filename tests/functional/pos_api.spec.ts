@@ -121,6 +121,88 @@ test.group('POS API', (group) => {
     assert.match(response.body().order.id, /^ORD-\d+$/)
   })
 
+  /**
+   * The till's basket panel asks for the queue with no order number and no phone
+   * number. That request used to be answered with 400 "Give an order number or a
+   * phone number", so the panel showed an empty basket while the orders sat in the
+   * file unread. No filter now means "the whole queue".
+   */
+  test('the till can read the whole order queue', async ({ client, assert }) => {
+    const queue = await client.get('/api/orders').header('x-adonai-pin', SHOP_PIN)
+
+    queue.assertStatus(200)
+    queue.assertBodyContains({ ok: true })
+    assert.isArray(queue.body().orders, 'the panel needs a list it can count')
+    assert.isAtLeast(queue.body().orders.length, 1, 'the order placed above must be in it')
+    assert.properties(queue.body().counts, ['received', 'dispatched', 'delivered'])
+  })
+
+  test('the queue can be filtered down to the orders still needing a rider', async ({
+    client,
+    assert,
+  }) => {
+    const open = await client.get('/api/orders?status=open').header('x-adonai-pin', SHOP_PIN)
+
+    open.assertStatus(200)
+    for (const order of open.body().orders) {
+      assert.include(['received', 'dispatched'], order.status)
+    }
+  })
+
+  /**
+   * The tracking screen reads GET /api/customers and GET /api/storefront-events.
+   * Only the POST side of /api/customers was ever served, so the GET fell through
+   * to the website's HTML 404 page and the screen showed zeroes.
+   */
+  test('the tracking screen can read its customers and events back', async ({ client, assert }) => {
+    const tracked = await client.get('/api/customers').header('x-adonai-pin', SHOP_PIN)
+    tracked.assertStatus(200)
+    tracked.assertBodyContains({ ok: true })
+    assert.isArray(tracked.body().customers)
+    assert.isNumber(tracked.body().count)
+
+    const events = await client.get('/api/storefront-events').header('x-adonai-pin', SHOP_PIN)
+    events.assertStatus(200)
+    assert.isArray(events.body().events)
+  })
+
+  /**
+   * A cashier ringing the dispatch needs to read the rider's name off the order,
+   * not look an id up somewhere else. Assigning a driver used to store only the
+   * id, so a panel that did not join the two showed a bare DRV-1 or nothing.
+   */
+  test('an assigned order carries the name of the rider bringing it', async ({
+    client,
+    assert,
+  }) => {
+    const created = await client.post('/api/orders').json({
+      name: 'Sarah Nabwire',
+      phone: '+256701234567',
+      items: [{ productId: 'canvas-sneakers', quantity: 1 }],
+    })
+
+    const driver = await client
+      .post('/api/drivers')
+      .header('x-adonai-pin', SHOP_PIN)
+      .json({ name: 'Moses Kigozi', phone: '+256772111222' })
+
+    const assigned = await client
+      .post('/api/orders/assign-driver')
+      .header('x-adonai-pin', SHOP_PIN)
+      .json({ orderId: created.body().order.id, driverId: driver.body().driver.id })
+
+    assigned.assertStatus(200)
+    assert.equal(assigned.body().order.driver.name, 'Moses Kigozi')
+    assert.equal(assigned.body().order.driver.phone, '+256772111222')
+    assert.equal(assigned.body().order.status, 'dispatched')
+
+    const queue = await client.get(`/api/orders?status=open`).header('x-adonai-pin', SHOP_PIN)
+    const listed = queue
+      .body()
+      .orders.find((order: { id: string }) => order.id === created.body().order.id)
+    assert.equal(listed.driver.name, 'Moses Kigozi', 'the queue must name the rider')
+  })
+
   test('records a contact message', async ({ client }) => {
     const response = await client
       .post('/api/contact')

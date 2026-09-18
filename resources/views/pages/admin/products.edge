@@ -68,9 +68,10 @@
       @set('honeypotId', 'piece-website')
       @include('components/form_security')
 
-      {{-- ------------------------------------------------------- 1. the photo --}}
+      {{-- ------------------------------------------------------- 1. the photos --}}
       <div class="grid gap-3">
-        <p class="adonai-step-label"><span class="adonai-step-number">1</span>The photo</p>
+        <p class="adonai-step-label"><span class="adonai-step-number">1</span>The photos</p>
+        <p class="text-xs leading-5 text-adonai-muted">Front, back, the label, and a close-up of any wear. Buyers of one-of-one pieces want to see the whole thing — the listing leads with the first photo you choose, and customers can page through the rest.</p>
 
         @if(editing && editing.image)
           <div class="flex items-center gap-4 rounded-lg border border-adonai-line bg-white p-3">
@@ -85,8 +86,9 @@
           id="piece-photo"
           class="peer sr-only"
           type="file"
-          name="photo"
+          name="photos"
           accept="image/*"
+          multiple
           data-photo-input
           data-photo-max-bytes="{{ photoLimitMb * 1024 * 1024 }}"
         />
@@ -95,16 +97,16 @@
             <path d="M4 8.5h3l1.5-2h7L17 8.5h3v10H4z" />
             <circle cx="12" cy="13" r="3.2" />
           </svg>
-          <span class="text-sm font-extrabold text-adonai-ink">Take a photo, or choose one</span>
-          <span class="text-xs leading-5 text-adonai-muted">Opens the camera on your phone. One photo, up to {{ photoLimitMb }} MB.</span>
+          <span class="text-sm font-extrabold text-adonai-ink">Take photos, or choose them</span>
+          <span class="text-xs leading-5 text-adonai-muted">Up to four at a time, {{ photoLimitMb }} MB each. Choose them again to replace the set.</span>
         </label>
 
-        {{-- Shown by app.js as soon as a photo is picked, so a photo that is too
-             big is caught here instead of after the whole form is filled in. --}}
+        {{-- Shown by app.js as soon as photos are picked, so one that is too big is
+             caught here instead of after the whole form is filled in. --}}
         <div class="adonai-photo-preview" data-photo-preview hidden>
-          <img data-photo-preview-image alt="" class="adonai-photo-thumb !h-16 !w-16" />
+          <div class="flex flex-wrap gap-2" data-photo-preview-list></div>
           <div class="min-w-0 flex-1">
-            <p data-photo-preview-name class="truncate text-xs font-bold text-adonai-ink"></p>
+            <p data-photo-preview-name class="text-xs font-bold text-adonai-ink"></p>
             <p data-photo-preview-note class="mt-1 text-xs leading-5 text-adonai-muted"></p>
           </div>
           <button type="button" data-photo-clear class="adonai-btn-secondary shrink-0 !px-3 !py-2 text-xs">Remove</button>

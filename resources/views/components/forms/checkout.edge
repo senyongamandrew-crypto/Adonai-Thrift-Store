@@ -1,109 +1,136 @@
-<section class="grid gap-8 lg:grid-cols-[1.15fr_.85fr]">
-  <div class="rounded-lg border border-adonai-line bg-white p-6 shadow-card sm:p-8">
-    <p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">Checkout</p>
-    <h1 class="mt-2 text-3xl font-black tracking-tight text-adonai-ink sm:text-4xl">Delivery details</h1>
-    <p class="mt-3 max-w-xl text-sm leading-6 text-adonai-muted">Tell us where to bring your pieces. The store confirms availability and calls you on the number below before dispatch.</p>
+  {{--
+    Values and errors are always objects. The controller passes both, but the
+    defaults here mean the form still renders if it is ever included by something
+    that passes neither — a missing value must never take the page down.
+  --}}
+  @set('values', values || {})
+  @set('errors', errors || {})
 
-    <form method="POST" action="/checkout" class="mt-8 grid gap-5" novalidate>
-      @include('components/form_security')
+  <section class="grid gap-8 lg:grid-cols-[1.15fr_.85fr]">
+    <div class="rounded-lg border border-adonai-line bg-white p-6 shadow-card sm:p-8">
+      <p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">Checkout</p>
+      <h1 class="mt-2 text-3xl font-black tracking-tight text-adonai-ink sm:text-4xl">Delivery details</h1>
+      <p class="mt-3 max-w-xl text-sm leading-6 text-adonai-muted">Tell us where to bring your pieces. The store confirms availability and calls you on the number below before dispatch.</p>
 
-      <div class="grid gap-5 sm:grid-cols-2">
-        <label class="grid gap-2 text-xs font-bold text-adonai-ink">Full name
-          <input class="adonai-input" name="name" type="text" autocomplete="name" required placeholder="Your name" />
-        </label>
-        <label class="grid gap-2 text-xs font-bold text-adonai-ink">Phone
-          <input class="adonai-input" name="phone" type="tel" autocomplete="tel" required placeholder="{{ site.whatsappDisplay }}" />
-        </label>
-      </div>
-      @inputError('name')
-        @each(message in $messages)
-          <p class="-mt-3 text-xs font-semibold text-red-600">{{ message }}</p>
-        @endeach
-      @end
-      @inputError('phone')
-        @each(message in $messages)
-          <p class="-mt-3 text-xs font-semibold text-red-600">{{ message }}</p>
-        @endeach
-      @end
+      {{--
+        Nothing a customer types is thrown away. Every field is re-filled from the
+        flash of the last attempt, so a single missed box costs one correction
+        rather than the whole form.
 
-      <label class="grid gap-2 text-xs font-bold text-adonai-ink">Email <span class="font-semibold text-adonai-muted">(optional)</span>
-        <input class="adonai-input" name="email" type="email" autocomplete="email" placeholder="you@example.com" />
-      </label>
-      @inputError('email')
-        @each(message in $messages)
-          <p class="-mt-3 text-xs font-semibold text-red-600">{{ message }}</p>
-        @endeach
-      @end
+        Each field also names itself twice: data-checkout-field is what app.js
+        watches, and data-checkout-error on the paragraph below it is the one red
+        line that belongs to that field. JavaScript clears that line the moment
+        the field becomes valid — including when the browser's own autofill
+        supplies the value after a failed attempt, which is exactly the case where
+        the warning used to sit there under a filled-in box.
+      --}}
+      <form method="POST" action="/checkout" class="mt-8 grid gap-5" data-checkout-form novalidate>
+        @include('components/form_security')
 
-      <label class="grid gap-2 text-xs font-bold text-adonai-ink">Delivery address
-        <input class="adonai-input" name="address" type="text" autocomplete="street-address" required placeholder="Street, building, landmark" />
-      </label>
-      @inputError('address')
-        @each(message in $messages)
-          <p class="-mt-3 text-xs font-semibold text-red-600">{{ message }}</p>
-        @endeach
-      @end
+        {{--
+          What the customer is buying, and the fields that carry it to the shop.
+          Both are drawn by app.js from the bag on their own phone, so the list
+          they read and the basket the till receives cannot disagree.
 
-      <div class="grid gap-5 sm:grid-cols-2">
-        <label class="grid gap-2 text-xs font-bold text-adonai-ink">City / area
-          <input class="adonai-input" name="city" type="text" autocomplete="address-level2" required placeholder="Kampala" />
-        </label>
-        <label class="grid gap-2 text-xs font-bold text-adonai-ink">Delivery note <span class="font-semibold text-adonai-muted">(optional)</span>
-          <input class="adonai-input" name="note" type="text" placeholder="Best time to call, gate colour..." />
-        </label>
-      </div>
-      @inputError('city')
-        @each(message in $messages)
-          <p class="-mt-3 text-xs font-semibold text-red-600">{{ message }}</p>
-        @endeach
-      @end
+          A phone with scripting switched off sees neither: the section stays
+          hidden and the order goes through with the delivery details alone,
+          exactly as it did before the bag existed.
+        --}}
+        <div data-bag-summary hidden>
+          <div class="rounded-lg border border-adonai-line bg-adonai-sand p-4">
+            <p class="text-xs font-extrabold uppercase tracking-[.18em] text-adonai-primary">Your pieces</p>
+            <ul class="mt-3 grid gap-2" data-bag-list></ul>
+            <p class="mt-3 text-xs leading-5 text-adonai-muted" data-bag-total></p>
+          </div>
+        </div>
+        <div data-bag-fields></div>
 
-      <fieldset class="grid gap-3">
-        <legend class="text-xs font-bold text-adonai-ink">Payment method</legend>
-        <div class="grid gap-3 sm:grid-cols-2">
-          <label class="flex items-center gap-3 rounded-lg border border-adonai-line bg-white p-4 text-sm font-semibold text-adonai-ink">
-            <input type="radio" name="paymentMethod" value="Mobile money" class="accent-adonai-primary" required checked />
-            Mobile money
+        <div class="grid gap-5 sm:grid-cols-2">
+          <label class="grid gap-2 text-xs font-bold text-adonai-ink">Full name
+            <input class="adonai-input" name="name" type="text" autocomplete="name" required placeholder="Your name" value="{{ values.name || '' }}" data-checkout-field="name" />
           </label>
-          <label class="flex items-center gap-3 rounded-lg border border-adonai-line bg-white p-4 text-sm font-semibold text-adonai-ink">
-            <input type="radio" name="paymentMethod" value="Cash on delivery" class="accent-adonai-primary" required />
-            Cash on delivery
+          <label class="grid gap-2 text-xs font-bold text-adonai-ink">Phone
+            <input class="adonai-input" name="phone" type="tel" inputmode="tel" autocomplete="tel" required placeholder="{{ site.whatsappDisplay }}" value="{{ values.phone || '' }}" data-checkout-field="phone" />
           </label>
         </div>
-        @inputError('paymentMethod')
-          @each(message in $messages)
-            <p class="text-xs font-semibold text-red-600">{{ message }}</p>
-          @endeach
-        @end
-      </fieldset>
+        @if(errors.name)
+          <p class="-mt-3 text-xs font-semibold text-adonai-danger" role="alert" data-checkout-error="name">{{ errors.name }}</p>
+        @endif
+        @if(errors.phone)
+          <p class="-mt-3 text-xs font-semibold text-adonai-danger" role="alert" data-checkout-error="phone">{{ errors.phone }}</p>
+        @endif
 
-      <label class="flex items-start gap-3 text-xs leading-5 text-adonai-muted">
-        <input type="checkbox" name="terms" value="true" class="mt-0.5 accent-adonai-primary" required />
-        <span>I have read the <a class="font-bold text-adonai-primary underline underline-offset-2" href="/terms">terms and conditions</a> and understand that one-of-one stock is confirmed by the store before dispatch.</span>
-      </label>
-      @inputError('terms')
-        @each(message in $messages)
-          <p class="text-xs font-semibold text-red-600">{{ message }}</p>
-        @endeach
-      @end
+        <label class="grid gap-2 text-xs font-bold text-adonai-ink">Email <span class="font-semibold text-adonai-muted">(optional)</span>
+          <input class="adonai-input" name="email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="{{ values.email || '' }}" data-checkout-field="email" />
+        </label>
+        @if(errors.email)
+          <p class="-mt-3 text-xs font-semibold text-adonai-danger" role="alert" data-checkout-error="email">{{ errors.email }}</p>
+        @endif
 
-      <button class="adonai-btn-primary w-full py-4 text-base" type="submit">Place order request</button>
-      <p class="text-xs leading-5 text-adonai-muted">No card details are collected on this page. The store confirms your items, delivery fee and payment step on the number you provide.</p>
-    </form>
-  </div>
+        <label class="grid gap-2 text-xs font-bold text-adonai-ink">Delivery address
+          <input class="adonai-input" name="address" type="text" autocomplete="street-address" required placeholder="Street, building, landmark" value="{{ values.address || '' }}" data-checkout-field="address" />
+        </label>
+        @if(errors.address)
+          <p class="-mt-3 text-xs font-semibold text-adonai-danger" role="alert" data-checkout-error="address">{{ errors.address }}</p>
+        @endif
 
-  <aside class="grid content-start gap-4">
-    <div class="adonai-card p-5">
-      <h2 class="text-sm font-extrabold text-adonai-ink">Try and Confirm</h2>
-      <p class="mt-3 text-sm leading-6 text-adonai-muted">Your rider brings the item to your address in Kampala. Check the fit and condition before you confirm payment.</p>
+        <div class="grid gap-5 sm:grid-cols-2">
+          <label class="grid gap-2 text-xs font-bold text-adonai-ink">City / area
+            <input class="adonai-input" name="city" type="text" autocomplete="address-level2" required placeholder="Kampala" value="{{ values.city || '' }}" data-checkout-field="city" />
+          </label>
+          <label class="grid gap-2 text-xs font-bold text-adonai-ink">Delivery note <span class="font-semibold text-adonai-muted">(optional)</span>
+            <input class="adonai-input" name="note" type="text" placeholder="Best time to call, gate colour..." value="{{ values.note || '' }}" data-checkout-field="note" />
+          </label>
+        </div>
+        @if(errors.city)
+          <p class="-mt-3 text-xs font-semibold text-adonai-danger" role="alert" data-checkout-error="city">{{ errors.city }}</p>
+        @endif
+        @if(errors.note)
+          <p class="-mt-3 text-xs font-semibold text-adonai-danger" role="alert" data-checkout-error="note">{{ errors.note }}</p>
+        @endif
+
+        <fieldset class="grid gap-3" data-checkout-group="paymentMethod">
+          <legend class="text-xs font-bold text-adonai-ink">Payment method</legend>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="flex items-center gap-3 rounded-lg border border-adonai-line bg-white p-4 text-sm font-semibold text-adonai-ink">
+              <input type="radio" name="paymentMethod" value="Mobile money" class="accent-adonai-primary" required {{ (values.paymentMethod || 'Mobile money') === 'Mobile money' ? 'checked' : '' }} />
+              Mobile money
+            </label>
+            <label class="flex items-center gap-3 rounded-lg border border-adonai-line bg-white p-4 text-sm font-semibold text-adonai-ink">
+              <input type="radio" name="paymentMethod" value="Cash on delivery" class="accent-adonai-primary" required {{ values.paymentMethod === 'Cash on delivery' ? 'checked' : '' }} />
+              Cash on delivery
+            </label>
+          </div>
+        @if(errors.paymentMethod)
+          <p class="-mt-3 text-xs font-semibold text-adonai-danger" role="alert" data-checkout-error="paymentMethod">{{ errors.paymentMethod }}</p>
+        @endif
+        </fieldset>
+
+        <label class="flex items-start gap-3 text-xs leading-5 text-adonai-muted">
+          <input type="checkbox" name="terms" value="true" class="mt-0.5 h-5 w-5 shrink-0 accent-adonai-primary" required {{ values.terms ? 'checked' : '' }} data-checkout-field="terms" />
+          <span>I have read the <a class="font-bold text-adonai-primary underline underline-offset-2" href="/terms">terms and conditions</a> and understand that one-of-one stock is confirmed by the store before dispatch.</span>
+        </label>
+        @if(errors.terms)
+          <p class="-mt-3 text-xs font-semibold text-adonai-danger" role="alert" data-checkout-error="terms">{{ errors.terms }}</p>
+        @endif
+
+        <button class="adonai-btn-primary w-full py-4 text-base" type="submit">Place order request</button>
+        <p class="text-xs leading-5 text-adonai-muted">No card details are collected on this page. The store confirms your items, delivery fee and payment step on the number you provide.</p>
+      </form>
     </div>
-    <div class="adonai-card p-5">
-      <h2 class="text-sm font-extrabold text-adonai-ink">Prices in UGX</h2>
-      <p class="mt-3 text-sm leading-6 text-adonai-muted">Every listing shows the UGX price before you order. Delivery fees depend on your area and rider availability.</p>
-    </div>
-    <div class="adonai-card p-5">
-      <h2 class="text-sm font-extrabold text-adonai-ink">Need help now?</h2>
-      <p class="mt-3 text-sm leading-6 text-adonai-muted">Call <a class="font-bold text-adonai-primary" href="{{ site.callLink }}">{{ site.callNumber }}</a> or WhatsApp <a class="font-bold text-adonai-primary" href="{{ site.whatsappLink }}">{{ site.whatsappNumber }}</a>.</p>
-    </div>
-  </aside>
-</section>
+
+    <aside class="grid content-start gap-4">
+      <div class="adonai-card p-5">
+        <h2 class="text-sm font-extrabold text-adonai-ink">Try and Confirm</h2>
+        <p class="mt-3 text-sm leading-6 text-adonai-muted">Your rider brings the item to your address in Kampala. Check the fit and condition before you confirm payment.</p>
+      </div>
+      <div class="adonai-card p-5">
+        <h2 class="text-sm font-extrabold text-adonai-ink">Prices in UGX</h2>
+        <p class="mt-3 text-sm leading-6 text-adonai-muted">Every listing shows the UGX price before you order. Delivery fees depend on your area and rider availability.</p>
+      </div>
+      <div class="adonai-card p-5">
+        <h2 class="text-sm font-extrabold text-adonai-ink">Need help now?</h2>
+        <p class="mt-3 text-sm leading-6 text-adonai-muted">Call <a class="font-bold text-adonai-primary" href="{{ site.callLink }}">{{ site.callNumber }}</a> or WhatsApp <a class="font-bold text-adonai-primary" href="{{ site.whatsappLink }}">{{ site.whatsappNumber }}</a>.</p>
+      </div>
+    </aside>
+  </section>

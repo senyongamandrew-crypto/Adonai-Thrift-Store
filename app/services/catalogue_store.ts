@@ -69,6 +69,12 @@ export type StoredOrder = {
   /** What was ordered, and how it is being paid for. */
   details?: Record<string, unknown>
   driverId?: string
+  /**
+   * The rider this order is promised to, filled in on the way out to a screen.
+   * Only the id is written to the file; the name and number are joined on at read
+   * time so a renamed driver never leaves a stale name on an old order.
+   */
+  driver?: StoredDriver | null
   assignedAt?: string
   updatedAt?: string
 }
@@ -588,6 +594,22 @@ export default class CatalogueStore {
     return this.loadRecords().orders.map((order) => ({ ...order }))
   }
 
+  /**
+   * Every order, with the rider it was promised to written into it.
+   *
+   * Assigning a driver only ever stored the driver's id, so a screen showing the
+   * order had to look the name up itself — and a screen that did not showed a
+   * bare DRV-1, or nothing at all. The name and the number are what a cashier
+   * ringing the dispatch actually needs.
+   */
+  allOrdersWithDriver(): StoredOrder[] {
+    const drivers = this.listDrivers()
+    return this.allOrders().map((order) => ({
+      ...order,
+      driver: drivers.find((driver) => driver.id === order.driverId) ?? null,
+    }))
+  }
+
   addMessage(payload: Record<string, unknown>): StoredMessage {
     const records = this.loadRecords()
     const message: StoredMessage = {
@@ -766,7 +788,14 @@ export default class CatalogueStore {
     order.assignedAt = new Date().toISOString()
     order.updatedAt = order.assignedAt
     this.saveRecords()
-    return { ...order }
+
+    /*
+     * The reply carries the rider, not just their id: this is the answer the till
+     * paints the row from, and "dispatched" with no name beside it tells a cashier
+     * nothing about who is coming.
+     */
+    const driver = this.collection<StoredDriver>('drivers').find((entry) => entry.id === driverId)
+    return { ...order, driver: driver ? { ...driver } : null }
   }
 
   /** Everything the delivery dashboard needs in one answer. */
@@ -778,6 +807,18 @@ export default class CatalogueStore {
     return {
       orders: orders.map((order) => ({ ...order })),
       drivers: this.listDrivers(),
+    }
+  }
+
+  /** The dispatch queue with each order's rider written in — see allOrdersWithDriver. */
+  activeDeliveriesWithDriver() {
+    const { orders, drivers } = this.activeDeliveries()
+    return {
+      orders: orders.map((order) => ({
+        ...order,
+        driver: drivers.find((driver) => driver.id === order.driverId) ?? null,
+      })),
+      drivers,
     }
   }
 
