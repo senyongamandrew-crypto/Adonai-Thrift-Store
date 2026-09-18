@@ -8,7 +8,7 @@
   data-product-card / data-product-search are what the search box filters on —
   the words in the last attribute are the ones a customer can type.
 --}}
-<article class="group flex flex-col overflow-hidden rounded-lg border border-adonai-line bg-white shadow-card transition-transform duration-200 hover:-translate-y-0.5" data-product-card="{{ product.id }}" data-product-search="{{ product.name }} {{ product.category }} {{ product.size }} {{ product.condition }} {{ product.description }}">
+<article class="group flex flex-col overflow-hidden rounded-lg border border-adonai-line bg-white shadow-card transition-transform duration-200 hover:-translate-y-0.5" data-product-card="{{ product.id }}" data-product-search="{{ [product.name, product.category, product.size, product.condition, product.description].filter(Boolean).join(' ') }}">
   <div class="relative aspect-[4/5] overflow-hidden bg-adonai-skeleton">
     @if(product.image)
       <a href="/products/{{ product.id }}" class="block h-full w-full" aria-label="View {{ product.name }}">
