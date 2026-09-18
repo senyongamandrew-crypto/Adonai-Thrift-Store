@@ -134,6 +134,14 @@ export function fromPosProduct(payload: Payload): ProductInput {
       payload.image ?? payload.imageUrl ?? payload.image_url ?? payload.photo ?? payload.thumbnail
     ),
     gallery: galleryOf(payload.gallery ?? payload.images),
+    /*
+     * Which view each photo shows. Sent as its own list because the gallery may
+     * arrive either as plain links or as objects, and pairing the two by position
+     * keeps the labels attached to the photos they describe.
+     */
+    galleryLabels: textListOf(
+      payload.galleryLabels ?? payload.gallery_labels ?? payload.imageLabels
+    ),
     bin: text(payload.bin),
     status: text(payload.status ?? payload.state),
     quantity,
@@ -176,6 +184,7 @@ export function toPosProduct(product: StoredProduct): Record<string, unknown> {
     measurementNote: product.measurementNote ?? '',
     image: product.image ?? '',
     gallery: product.gallery ?? [],
+    galleryLabels: product.galleryLabels ?? [],
     bin: product.bin ?? '',
     status: product.status ?? (product.available ? 'available' : 'sold'),
     quantity: product.quantity ?? (product.available ? 1 : 0),
@@ -217,6 +226,18 @@ function listOf(value: unknown): string[] | undefined {
     .map((entry) => entry.trim())
     .filter(Boolean)
   return items.length > 0 ? items : undefined
+}
+
+function textListOf(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    const single = text(value)
+    return single ? [single] : undefined
+  }
+
+  const entries = value
+    .map((entry) => text(entry))
+    .filter((entry): entry is string => Boolean(entry))
+  return entries.length > 0 ? entries : undefined
 }
 
 function galleryOf(value: unknown): string[] | undefined {

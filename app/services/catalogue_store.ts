@@ -36,6 +36,12 @@ export type StoredProduct = {
   description?: string
   image?: string
   gallery?: string[]
+  /**
+   * What each photo in the gallery shows — "Front view", "Tag", "Texture" —
+   * position for position with `gallery`. A customer buying second-hand wants to
+   * know which view they are looking at, and a caption costs nothing to carry.
+   */
+  galleryLabels?: string[]
   measurementNote?: string
   available: boolean
   newArrival: boolean
@@ -144,6 +150,7 @@ export type ProductInput = {
   description?: string
   image?: string | null
   gallery?: string[] | null
+  galleryLabels?: string[] | null
   measurementNote?: string
   available?: boolean
   newArrival?: boolean
@@ -167,6 +174,15 @@ type CatalogueFile = {
 
 type RecordsFile = {
   version: 1
+  /**
+   * Bumped on every write to this file.
+   *
+   * The till's basket panel runs on a phone over a shop's mobile data, so it can
+   * neither hold a socket open nor afford to re-download the whole queue every few
+   * seconds. Asking "has anything changed since revision 12?" costs one number on
+   * the wire and answers honestly.
+   */
+  revision?: number
   orders: StoredOrder[]
   messages: StoredMessage[]
   /** Added for the POS integration; older files simply do not have them yet. */
@@ -241,7 +257,33 @@ function toCleanList(value: unknown): string[] | undefined {
   return undefined
 }
 
-export function normaliseProduct(input: ProductInput, existing?: StoredProduct): StoredProduct {
+export /**
+ * The labels for a piece's photos, kept exactly as long as the photo list.
+ *
+ * A shop may label two of four photos and leave the rest blank; the blanks stay
+ * blank rather than sliding the later labels up under the wrong pictures.
+ */
+function normaliseGalleryLabels(
+  input: ProductInput,
+  existing?: StoredProduct
+): string[] | undefined {
+  if (input.gallery === null) return undefined
+
+  const photos = toCleanList(input.gallery) ?? existing?.gallery
+  if (!photos?.length) return undefined
+
+  const labels = toCleanList(input.galleryLabels)
+
+  /*
+   * No labels sent means "leave them alone" — an edit that only changes a price
+   * must not wipe the angles on the photos it never mentioned.
+   */
+  if (!labels) return existing?.galleryLabels?.slice(0, photos.length)
+
+  return photos.map((_, index) => labels[index] ?? '')
+}
+
+function normaliseProduct(input: ProductInput, existing?: StoredProduct): StoredProduct {
   const now = new Date().toISOString()
   const name = toCleanString(input.name) || existing?.name || 'Adonai Thrift Store item'
   const price =
@@ -274,6 +316,11 @@ export function normaliseProduct(input: ProductInput, existing?: StoredProduct):
      */
     image: input.image === null ? undefined : (toCleanString(input.image) ?? existing?.image),
     gallery: input.gallery === null ? undefined : (toCleanList(input.gallery) ?? existing?.gallery),
+    /*
+     * Labels travel with the photos, never on their own: a label without a photo
+     * to sit under would caption somebody else's picture after an edit.
+     */
+    galleryLabels: normaliseGalleryLabels(input, existing),
     measurementNote: toCleanString(input.measurementNote) ?? existing?.measurementNote,
     available: resolveAvailability(input, existing, status),
     /**
@@ -536,7 +583,14 @@ export default class CatalogueStore {
   }
 
   private saveRecords() {
-    this.writeJson(this.recordsPath, this.loadRecords())
+    const records = this.loadRecords()
+    records.revision = (records.revision ?? 0) + 1
+    this.writeJson(this.recordsPath, records)
+  }
+
+  /** The number the till quotes back to ask "anything new since?" */
+  ordersRevision(): number {
+    return this.loadRecords().revision ?? 0
   }
 
   /**

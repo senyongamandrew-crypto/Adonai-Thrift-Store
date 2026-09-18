@@ -19,7 +19,7 @@
 */
 
 import type { HttpContext } from '@adonisjs/core/http'
-import type { ProductInput } from '#services/catalogue_store'
+import type { ProductInput, StoredOrder } from '#services/catalogue_store'
 import { pinMatchesConfigured, readSuppliedPin } from '#services/shop_pin'
 import { issueToken, pinIsValid, sessionSignedIn, tokenIsValid } from '#services/shop_session'
 import { fromPosProduct, posHealth, toPosProduct } from '#services/pos_sync'
@@ -248,6 +248,102 @@ export default class PosApiController {
   }
 
   /** A customer looking up their own order by reference or phone number. */
+  /**
+   * An order as the till's "Current basket" panel needs to see it.
+   *
+   * The panel is a cashier standing at a counter with a customer on the phone.
+   * Everything that saves them a second look is assembled here rather than in the
+   * app: the pieces with the photo and the shelf they are on, what to ring up, a
+   * number to call, and a map link when the customer's phone shared a location.
+   *
+   * The photo, size and bin are looked up from the catalogue as it stands now,
+   * not from a copy taken when the order was placed: a piece that moved shelf
+   * after the order must not send a cashier to the wrong bin.
+   */
+  private presentOrder(order: StoredOrder): Record<string, unknown> {
+    const customer = (order.customer || {}) as Record<string, unknown>
+    const details = (order.details || {}) as Record<string, unknown>
+    const stored = Array.isArray(details.items) ? (details.items as Record<string, unknown>[]) : []
+
+    const pieces = stored.map((line) => {
+      const productId = String(line.productId || line.id || line.sku || '').trim()
+      const product = productId ? this.store().findProduct(productId) : null
+      const price = Number(line.price ?? product?.price ?? 0) || 0
+      const quantity = Math.min(10, Math.max(1, Number(line.quantity) || 1))
+
+      return {
+        productId,
+        name: String(line.name || product?.name || 'Piece'),
+        price,
+        quantity,
+        lineTotal: price * quantity,
+        image: product?.image || String(line.image || ''),
+        size: product?.size || '',
+        bin: product?.bin || '',
+        sku: product?.sku || '',
+      }
+    })
+
+    const total =
+      Number(details.total ?? 0) || pieces.reduce((sum, piece) => sum + piece.lineTotal, 0)
+
+    const phone = String(customer.phone || '').trim()
+    const digits = phone.replace(/[^0-9]/g, '')
+    const latitude = Number(details.latitude)
+    const longitude = Number(details.longitude)
+    const located =
+      Number.isFinite(latitude) && Number.isFinite(longitude) && !!latitude && !!longitude
+
+    return {
+      ...order,
+      customer: {
+        ...customer,
+        /** A tap dials; a cashier on a counter phone should never retype a number. */
+        callLink: phone ? `tel:${phone.replace(/[^0-9+]/g, '')}` : '',
+        whatsappLink: digits ? `https://wa.me/${digits}` : '',
+      },
+      driver: order.driver ?? null,
+      pieces,
+      itemCount: pieces.length,
+      total,
+      totalLabel: `UGX ${new Intl.NumberFormat('en-UG', { maximumFractionDigits: 0 }).format(total)}`,
+      summary: pieces.length
+        ? `${pieces.length} ${pieces.length === 1 ? 'piece' : 'pieces'} · UGX ${new Intl.NumberFormat('en-UG', { maximumFractionDigits: 0 }).format(total)}`
+        : 'No basket lines attached',
+      placedAtLabel: this.kampalaTime(order.createdAt),
+      delivery: {
+        address: String(customer.address || ''),
+        city: String(customer.city || ''),
+        note: String(details.note || ''),
+        latitude: located ? latitude : null,
+        longitude: located ? longitude : null,
+        mapsLink: located
+          ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
+          : '',
+      },
+    }
+  }
+
+  /**
+   * A clock the shop recognises. The server keeps time in UTC; a cashier reading
+   * "08:42" against a Kampala morning would ring the wrong customer back.
+   */
+  private kampalaTime(value: string): string {
+    const when = new Date(value)
+    if (Number.isNaN(when.getTime())) return ''
+    try {
+      return new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Africa/Kampala',
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(when)
+    } catch {
+      return when.toISOString()
+    }
+  }
+
   async listOrders({ request, response }: HttpContext) {
     const id = String(request.input('id') || request.input('orderId') || '').trim()
     const phone = String(request.input('phone') || '').trim()
@@ -284,21 +380,54 @@ export default class PosApiController {
       orders = orders.filter((order) => wanted.includes(String(order.status || '').toLowerCase()))
     }
 
+    /**
+     * The cheap poll.
+     *
+     * A phone on shop data cannot re-download the whole queue every few seconds,
+     * so the panel sends back the revision it last saw. When nothing has happened
+     * since, the answer is four fields and no orders at all.
+     */
+    const revision = this.store().ordersRevision()
+    const sinceRevision = Number(request.input('sinceRevision'))
+    const since = String(request.input('since') || '').trim()
+
+    const unchanged = Number.isFinite(sinceRevision) && sinceRevision === revision
+
+    if (unchanged) {
+      return response.status(200).send({
+        ok: true,
+        changed: false,
+        revision,
+        count: orders.length,
+        orders: [],
+      })
+    }
+
+    const changedSince = since
+      ? orders.filter((order) => String(order.updatedAt || '') > since)
+      : []
+
     const all = this.store().allOrders()
     const countBy = (value: string) =>
       all.filter((order) => String(order.status || '').toLowerCase() === value).length
 
     return response.status(200).send({
       ok: true,
+      changed: true,
+      revision,
+      serverTime: new Date().toISOString(),
       count: orders.length,
       total: all.length,
+      /** Only what moved, for a panel that keeps its own copy of the queue. */
+      changedCount: changedSince.length,
+      changedOrders: changedSince.map((order) => this.presentOrder(order)),
       counts: {
         received: countBy('received'),
         dispatched: countBy('dispatched'),
         delivered: countBy('delivered'),
         cancelled: countBy('cancelled'),
       },
-      orders,
+      orders: orders.map((order) => this.presentOrder(order)),
     })
   }
 
@@ -430,10 +559,23 @@ export default class PosApiController {
 
   /* -------------------------------------------------------------- deliveries */
 
+  /**
+   * The dispatch board: everything still to go out, and the riders who can take it.
+   */
   async activeDeliveries(ctx: HttpContext) {
     const { response } = ctx
     if (!this.authorised(ctx)) return this.unauthorised(response)
-    return response.status(200).send({ ok: true, ...this.store().activeDeliveriesWithDriver() })
+
+    const queue = this.store().activeDeliveriesWithDriver()
+    return response.status(200).send({
+      ok: true,
+      revision: this.store().ordersRevision(),
+      serverTime: new Date().toISOString(),
+      count: queue.orders.length,
+      /** Riders are listed with their load, so the free one is obvious. */
+      drivers: this.driversWithLoad(),
+      orders: queue.orders.map((order) => this.presentOrder(order)),
+    })
   }
 
   async drivers(ctx: HttpContext) {
@@ -445,7 +587,35 @@ export default class PosApiController {
       return response.status(201).send({ ok: true, driver: this.store().upsertDriver(payload) })
     }
 
-    return response.status(200).send({ ok: true, drivers: this.store().listDrivers() })
+    const drivers = this.driversWithLoad()
+    const onlyFree = ['true', '1', 'yes'].includes(String(request.input('available') || ''))
+    const listed = onlyFree ? drivers.filter((driver) => driver.available) : drivers
+
+    return response.status(200).send({ ok: true, count: listed.length, drivers: listed })
+  }
+
+  /**
+   * "Available delivery personnel" has to mean something a cashier can act on.
+   *
+   * A rider is free when they are switched on and carrying nothing. The load is
+   * counted from the queue rather than stored on the rider, so a cancelled order
+   * frees them without anybody having to remember to reset a flag.
+   */
+  private driversWithLoad() {
+    const open = this.store()
+      .allOrders()
+      .filter((order) => ['received', 'dispatched'].includes(String(order.status || '')))
+
+    return this.store()
+      .listDrivers()
+      .map((driver) => {
+        const carrying = open.filter((order) => order.driverId === driver.id)
+        return {
+          ...driver,
+          openOrders: carrying.length,
+          available: driver.active !== false && carrying.length === 0,
+        }
+      })
   }
 
   async driverLocation(ctx: HttpContext) {
@@ -479,7 +649,14 @@ export default class PosApiController {
     if (!order) {
       return response.status(404).send({ ok: false, error: 'That order is not in the queue.' })
     }
-    return response.status(200).send({ ok: true, order })
+
+    /** The rider's new load goes back with the answer, so the panel can repaint. */
+    return response.status(200).send({
+      ok: true,
+      revision: this.store().ordersRevision(),
+      order: this.presentOrder(order),
+      drivers: this.driversWithLoad(),
+    })
   }
 
   /* ------------------------------------------------------------ admin reset */
@@ -516,9 +693,19 @@ export default class PosApiController {
 
     if (upload) {
       if (!upload.isValid) {
-        return response
-          .status(400)
-          .send({ ok: false, error: upload.errors[0]?.message || 'Unsupported image.' })
+        /*
+         * The parser's own wording ("Invalid file extension undefined") is meant
+         * for a developer. The person holding the phone needs to know what to do
+         * differently, so the two reasons are said plainly here.
+         */
+        const limitMb = Math.round(media.maxUploadBytes() / (1024 * 1024))
+        return response.status(400).send({
+          ok: false,
+          error:
+            upload.errors[0]?.type === 'size'
+              ? `That photo is bigger than ${limitMb} MB, which is the most the app can store.`
+              : `That file is not a photo the app can store. Photos must be a JPEG, PNG, WebP or GIF, under ${limitMb} MB.`,
+        })
       }
       bytes = Buffer.alloc(0)
       const tempPath = upload.tmpPath

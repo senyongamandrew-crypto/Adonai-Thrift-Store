@@ -71,7 +71,7 @@
       {{-- ------------------------------------------------------- 1. the photos --}}
       <div class="grid gap-3">
         <p class="adonai-step-label"><span class="adonai-step-number">1</span>The photos</p>
-        <p class="text-xs leading-5 text-adonai-muted">Front, back, the label, and a close-up of any wear. Buyers of one-of-one pieces want to see the whole thing — the listing leads with the first photo you choose, and customers can page through the rest.</p>
+        <p class="text-xs leading-5 text-adonai-muted">Front, back, the label, and a close-up of any wear. Buyers of one-of-one pieces want to see the whole thing — the listing leads with the first photo you choose, and customers can page through the rest. Say what each photo shows and the customer is told which view they are looking at.</p>
 
         @if(editing && editing.image)
           <div class="flex items-center gap-4 rounded-lg border border-adonai-line bg-white p-3">
@@ -104,13 +104,19 @@
         {{-- Shown by app.js as soon as photos are picked, so one that is too big is
              caught here instead of after the whole form is filled in. --}}
         <div class="adonai-photo-preview" data-photo-preview hidden>
-          <div class="flex flex-wrap gap-2" data-photo-preview-list></div>
           <div class="min-w-0 flex-1">
             <p data-photo-preview-name class="text-xs font-bold text-adonai-ink"></p>
             <p data-photo-preview-note class="mt-1 text-xs leading-5 text-adonai-muted"></p>
           </div>
           <button type="button" data-photo-clear class="adonai-btn-secondary shrink-0 !px-3 !py-2 text-xs">Remove</button>
         </div>
+
+        {{--
+          One named view per chosen photo, drawn by app.js in the order the photos
+          were chosen so the two lists line up. Left alone, a photo travels
+          without a name and the customer simply sees it unlabelled.
+        --}}
+        <div class="grid gap-3" data-photo-labels hidden></div>
 
         <details class="rounded-lg border border-adonai-line bg-adonai-canvas p-3">
           <summary class="cursor-pointer text-xs font-extrabold text-adonai-ink">Or paste a photo link instead</summary>

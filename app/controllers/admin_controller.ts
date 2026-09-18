@@ -26,6 +26,22 @@ import {
 import { PIN_SESSION_KEY, sessionSignedIn } from '#services/shop_session'
 import { getBuiltInCatalogue } from '#services/storefront_services'
 
+/**
+ * The view names a shop chose for its photos, in the order it chose them.
+ *
+ * A single label arrives as a string and several arrive as an array — a form with
+ * one select posts the string, with four it posts the array — so both are folded
+ * into a list here rather than at each place that reads them.
+ */
+function toLabelList(value: unknown): string[] {
+  const entries = Array.isArray(value) ? value : value === undefined ? [] : [value]
+  return entries.map((entry) =>
+    String(entry ?? '')
+      .trim()
+      .slice(0, 40)
+  )
+}
+
 export default class AdminController {
   private store() {
     return getBuiltInCatalogue()
@@ -244,7 +260,11 @@ export default class AdminController {
    * One bad file in a batch never costs the shop the good ones: everything that
    * can be saved is saved, and the shop is told about the rest.
    */
-  private attachPhotos(request: HttpContext['request']): { urls: string[]; error?: string } {
+  private attachPhotos(request: HttpContext['request']): {
+    urls: string[]
+    labels: string[]
+    error?: string
+  } {
     /*
      * No size or format options are handed to the parser here, deliberately. When
      * they are, the parser silently drops a file it does not like and hands back a
@@ -254,11 +274,19 @@ export default class AdminController {
      * act on. The request as a whole is still capped by the body parser.
      */
     const uploads = request.files('photos')
-    if (!uploads.length) return { urls: [] }
+    if (!uploads.length) return { urls: [], labels: [] }
+
+    /*
+     * What each photo shows, in the order the photos were chosen: "Front view",
+     * "Tag". A customer buying second-hand wants to know which view they are
+     * looking at, and a second-hand shop's photos all look alike without it.
+     */
+    const labels = toLabelList(request.input('labels'))
 
     const limit = maxUploadBytes()
     const megabytes = Math.round(limit / (1024 * 1024))
     const urls: string[] = []
+    const kept: string[] = []
     let error: string | undefined
 
     for (const upload of uploads) {
@@ -292,9 +320,15 @@ export default class AdminController {
       }
 
       urls.push(saveImage(bytes, contentType).url)
+      /*
+       * The label belongs to this photo, so it is pushed beside it. A refused
+       * photo takes its label with it rather than sliding the label up under
+       * somebody else's picture.
+       */
+      kept.push(labels[urls.length - 1] ?? '')
     }
 
-    return error ? { urls, error } : { urls }
+    return error ? { urls, labels: kept, error } : { urls, labels: kept }
   }
 
   /**
@@ -302,10 +336,11 @@ export default class AdminController {
    * gallery. Doing nothing when no photo was chosen is what keeps a piece's
    * existing photos when the shop only comes back to change a price.
    */
-  private applyPhotos(payload: ProductInput, photos: { urls: string[] }): void {
+  private applyPhotos(payload: ProductInput, photos: { urls: string[]; labels: string[] }): void {
     if (!photos.urls.length) return
     payload.image = photos.urls[0]
     payload.gallery = photos.urls
+    payload.galleryLabels = photos.labels
   }
 
   private productFrom(input: Record<string, unknown>): ProductInput {

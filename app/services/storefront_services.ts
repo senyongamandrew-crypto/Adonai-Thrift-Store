@@ -8,6 +8,13 @@ export type EdgeGalleryImage = {
   webp?: string
   avif?: string
   alt: string
+  /**
+   * Which view this is — "Front view", "Label or tag". Shown over the photo, so a
+   * customer knows what they are looking at without having to work it out.
+   */
+  label?: string
+  /** Photo 2 of 3, for the customer's own sense of place when paging. */
+  position?: string
 }
 
 export type EdgeProduct = {
@@ -20,6 +27,8 @@ export type EdgeProduct = {
   imageWebp?: string
   imageAvif?: string
   description?: string
+  /** Fabric, care, faults — the longer notes the shop keeps about a piece. */
+  details?: string
   priceFormatted: string
   originalPriceFormatted?: string
   newArrival?: boolean
@@ -166,27 +175,65 @@ function normalizeColours(value: unknown): Array<{ name: string; hex?: string }>
 function normalizeGallery(
   value: unknown,
   fallbackImage: string,
-  productName: string
+  productName: string,
+  labels?: unknown
 ): EdgeGalleryImage[] {
+  const named = Array.isArray(labels) ? labels : []
+
   if (!Array.isArray(value)) {
+    const single = asString(named[0])
     return fallbackImage
-      ? [{ index: 0, src: fallbackImage, alt: `${productName} at Adonai Thrift Store` }]
+      ? [
+          {
+            index: 0,
+            src: fallbackImage,
+            alt: single ? `${productName} — ${single}` : `${productName} at Adonai Thrift Store`,
+            label: single || undefined,
+          },
+        ]
       : []
   }
 
-  return value
+  const images = value
     .map((image, index) => {
       const item = typeof image === 'string' ? { src: image } : (image as Record<string, unknown>)
       const src = asString(item.src || item.image || item.url || fallbackImage)
+      const label = asString(item.label || item.caption || named[index], '').trim()
+
       return {
         index,
         src,
         webp: asOptionalString(item.webp || item.imageWebp),
         avif: asOptionalString(item.avif || item.imageAvif),
-        alt: asString(item.alt, `${productName} detail view at Adonai Thrift Store`),
+        /**
+         * The alternative text names the view too. It is what a customer using a
+         * screen reader hears, and what a search engine indexes — "green dress"
+         * tells neither of them that this is the label inside the collar.
+         */
+        alt: asString(
+          item.alt,
+          label ? `${productName} — ${label}` : `${productName} detail view at Adonai Thrift Store`
+        ),
+        label: label || undefined,
       }
     })
     .filter((image) => image.src)
+
+  /**
+   * "Photo 2 of 4" is added after the empties are dropped, so the count a customer
+   * reads is the count they can page through.
+   *
+   * It is only added to a gallery the shop has named its views in. A shop that
+   * has not labelled anything sees exactly the page it saw before — the badge is
+   * part of naming the angles, not something laid over every photo uninvited.
+   */
+  const anyNamed = images.some((image) => image.label)
+
+  return images.map((image, index) => ({
+    ...image,
+    index,
+    position: anyNamed && images.length > 1 ? `Photo ${index + 1} of ${images.length}` : undefined,
+  }))
 }
 
 export function toEdgeProduct(product: CatalogProduct): EdgeProduct {
@@ -212,10 +259,21 @@ export function toEdgeProduct(product: CatalogProduct): EdgeProduct {
     imageWebp: asOptionalString(product.imageWebp || product.webp),
     imageAvif: asOptionalString(product.imageAvif || product.avif),
     description: asOptionalString(product.description),
+    /**
+     * The longer notes the shop keeps about a piece — fabric, care, faults. They
+     * were being stored and never shown; a customer deciding on a second-hand
+     * jacket wants them.
+     */
+    details: asOptionalString(product.details),
     priceFormatted: asString(price, 'Price on request'),
     originalPriceFormatted: asOptionalString(originalPrice),
     newArrival: asBoolean(product.newArrival || product.isNew),
-    gallery: normalizeGallery(product.gallery || product.images, image, name),
+    gallery: normalizeGallery(
+      product.gallery || product.images,
+      image,
+      name,
+      product.galleryLabels || product.imageLabels
+    ),
     sizes: Array.isArray(product.sizes)
       ? product.sizes.map((size) => asString(size)).filter(Boolean)
       : undefined,

@@ -586,18 +586,10 @@ function setupPhotoPicker() {
       files.forEach((file, index) => {
         total += file.size
         if (file.size > limit) overLimit += 1
-
-        if (list && index < 8) {
-          const url = URL.createObjectURL(file)
-          thumbs.push(url)
-          const img = document.createElement('img')
-          img.src = url
-          // The first photo is the one customers see first, so it is marked.
-          img.alt = index === 0 ? 'The first photo — this one leads the listing' : ''
-          img.className = 'adonai-photo-thumb !h-16 !w-16'
-          list.appendChild(img)
-        }
+        if (list) list.appendChild(photoThumb(file, index, thumbs))
       })
+
+      drawPhotoLabels(files)
 
       if (name) {
         name.textContent = files.length === 1 ? files[0].name : `${files.length} photos chosen`
@@ -620,13 +612,95 @@ function setupPhotoPicker() {
       })
     }
 
+    /**
+     * Ask what each photo shows.
+     *
+     * The list is rebuilt whenever the chosen photos change, and it is rebuilt in
+     * the same order as the files, because the two are matched up by position on
+     * the way to the server. A shop that leaves every one of these alone still
+     * gets its photos — they simply arrive without a name.
+     */
+    function drawPhotoLabels(files) {
+      const holder = form.querySelector('[data-photo-labels]')
+      if (!holder) return
+
+      holder.textContent = ''
+
+      if (!files.length) {
+        holder.hidden = true
+        return
+      }
+
+      const heading = document.createElement('p')
+      heading.className = 'adonai-step-label'
+      heading.textContent = 'What does each photo show?'
+      holder.appendChild(heading)
+
+      const help = document.createElement('p')
+      help.className = 'text-xs leading-5 text-adonai-muted'
+      help.textContent =
+        'Optional, but it is what tells a customer whether they are looking at the front, the back or a close-up of the wear.'
+      holder.appendChild(help)
+
+      files.forEach((file, index) => {
+        const row = document.createElement('div')
+        row.className = 'flex items-center gap-3 rounded-lg border border-adonai-line bg-white p-3'
+
+        row.appendChild(photoThumb(file, index, []))
+
+        const picker = document.createElement('label')
+        picker.className = 'min-w-0 flex-1 grid gap-1 text-xs font-bold text-adonai-ink'
+        picker.appendChild(
+          document.createTextNode(
+            index === 0 ? 'Photo 1 — the one customers see first' : `Photo ${index + 1}`
+          )
+        )
+
+        const select = document.createElement('select')
+        select.className = 'adonai-input'
+        select.name = 'labels[]'
+
+        const options =
+          index === 0
+            ? ['Front view', 'Back view', 'Label or tag', 'Texture close-up', 'Detail', 'Other']
+            : ['Back view', 'Label or tag', 'Texture close-up', 'Detail', 'Front view', 'Other']
+
+        options.forEach((option) => {
+          const choice = document.createElement('option')
+          choice.value = option
+          choice.textContent = option
+          select.appendChild(choice)
+        })
+
+        picker.appendChild(select)
+        row.appendChild(picker)
+        holder.appendChild(row)
+      })
+
+      holder.hidden = false
+    }
+
     function hide() {
       thumbs.forEach((url) => URL.revokeObjectURL(url))
       thumbs.length = 0
       if (list) list.textContent = ''
+      drawPhotoLabels([])
       if (preview) preview.hidden = true
     }
   })
+}
+
+/** A small square of a chosen photo, before it is ever sent anywhere. */
+function photoThumb(file, index, thumbs) {
+  const url = URL.createObjectURL(file)
+  thumbs.push(url)
+
+  const img = document.createElement('img')
+  img.src = url
+  // The first photo is the one customers see first, so it is marked.
+  img.alt = index === 0 ? 'The first photo — this one leads the listing' : ''
+  img.className = 'adonai-photo-thumb !h-16 !w-16'
+  return img
 }
 
 /** Small photos are described in KB — "0.0 MB" tells the shop nothing. */

@@ -247,6 +247,72 @@ test.group('Built-in catalogue drives the storefront', (group) => {
     response.assertTextIncludes('UGX 35,000')
   })
 
+  test('keeps the name of each view beside the photo it describes', async ({ client }) => {
+    const product = getBuiltInCatalogue().addProduct({
+      name: 'Corduroy overshirt',
+      price: 52000,
+      gallery: ['/media/front.jpg', '/media/tag.jpg', '/media/wear.jpg'],
+      galleryLabels: ['Front view', 'Label or tag', 'Texture close-up'],
+    })
+
+    const response = await client.get(`/api/products/${product.id}`)
+
+    response.assertStatus(200)
+    response.assertBodyContains({
+      product: { galleryLabels: ['Front view', 'Label or tag', 'Texture close-up'] },
+    })
+
+    const page = await client.get(`/products/${product.id}`)
+
+    page.assertStatus(200)
+    page.assertTextIncludes('Front view')
+    page.assertTextIncludes('Label or tag')
+    page.assertTextIncludes('Texture close-up')
+    // The alternative text names the view too, for anyone using a screen reader.
+    page.assertTextIncludes('Corduroy overshirt — Label or tag')
+  })
+
+  test('an edit that never mentions the photos leaves their names alone', async ({ client }) => {
+    const product = getBuiltInCatalogue().addProduct({
+      name: 'Wool overcoat',
+      price: 120000,
+      gallery: ['/media/coat-front.jpg', '/media/coat-lining.jpg'],
+      galleryLabels: ['Front view', 'Texture close-up'],
+    })
+
+    const changed = await client
+      .put(`/api/products/${product.id}`)
+      .header('x-adonai-pin', SHOP_PIN)
+      .json({ price: 110000 })
+
+    changed.assertStatus(200)
+    changed.assertBodyContains({ product: { price: 110000 } })
+
+    const listing = await client.get(`/api/products/${product.id}`)
+
+    listing.assertBodyContains({
+      product: { galleryLabels: ['Front view', 'Texture close-up'], gallery: product.gallery },
+    })
+  })
+
+  test('a piece whose photos are not named looks exactly as it did before', async ({
+    client,
+    assert,
+  }) => {
+    const product = getBuiltInCatalogue().addProduct({
+      name: 'Plain linen shirt',
+      price: 30000,
+      gallery: ['/media/shirt-a.jpg', '/media/shirt-b.jpg'],
+    })
+
+    const page = await client.get(`/products/${product.id}`)
+
+    page.assertStatus(200)
+    // No "Photo 1 of 2" caption and no empty badge unless the shop named the views.
+    assert.notInclude(page.text(), 'Photo 1 of 2')
+    assert.notInclude(page.text(), 'pointer-events-none absolute')
+  })
+
   test('serves the product page for a listed piece', async ({ client }) => {
     const product = getBuiltInCatalogue().addProduct({ name: 'Linen summer dress', price: 40000 })
 

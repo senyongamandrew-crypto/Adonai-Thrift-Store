@@ -7,15 +7,32 @@
     <div class="relative" data-carousel data-carousel-index="0">
       <div class="relative aspect-[4/5] overflow-hidden rounded-lg border border-adonai-line bg-adonai-skeleton">
         @each(image in product.gallery)
-          <picture class="block h-full w-full {{ image.index === 0 ? '' : 'hidden' }}" data-carousel-slide>
-            @if(image.avif)
-              <source srcset="{{ image.avif }}" type="image/avif" />
+          <div class="relative h-full w-full {{ image.index === 0 ? '' : 'hidden' }}" data-carousel-slide>
+            <picture class="block h-full w-full">
+              @if(image.avif)
+                <source srcset="{{ image.avif }}" type="image/avif" />
+              @endif
+              @if(image.webp)
+                <source srcset="{{ image.webp }}" type="image/webp" />
+              @endif
+              <img src="{{ image.src }}" alt="{{ image.alt || product.name || 'Adonai Thrift Store product image' }}" class="h-full w-full object-cover" loading="{{ image.index === 0 ? 'eager' : 'lazy' }}" decoding="async" aria-hidden="{{ image.index === 0 ? 'false' : 'true' }}" />
+            </picture>
+            {{--
+              Which view this is, sitting on the photo itself. Tapping through four
+              photos of a jacket tells a customer nothing unless the photos say
+              what they are looking at.
+            --}}
+            @if(image.label || image.position)
+              <div class="pointer-events-none absolute inset-x-3 bottom-3 flex flex-wrap items-center gap-2">
+                @if(image.label)
+                  <span class="rounded-md bg-adonai-ink/85 px-2.5 py-1 text-[11px] font-bold text-white">{{ image.label }}</span>
+                @endif
+                @if(image.position)
+                  <span class="rounded-md bg-white/90 px-2.5 py-1 text-[11px] font-bold text-adonai-ink">{{ image.position }}</span>
+                @endif
+              </div>
             @endif
-            @if(image.webp)
-              <source srcset="{{ image.webp }}" type="image/webp" />
-            @endif
-            <img src="{{ image.src }}" alt="{{ image.alt || product.name || 'Adonai Thrift Store product image' }}" class="h-full w-full object-cover" loading="{{ image.index === 0 ? 'eager' : 'lazy' }}" decoding="async" aria-hidden="{{ image.index === 0 ? 'false' : 'true' }}" />
-          </picture>
+          </div>
         @endeach
         @if(!product.gallery || !product.gallery.length)
           <div class="adonai-photo-skeleton" role="img" aria-label="Product image not available">
@@ -36,7 +53,7 @@
       @if(product.gallery && product.gallery.length > 1)
         <div class="mt-4 flex justify-center gap-2">
           @each(image in product.gallery)
-            <button type="button" data-carousel-dot="{{ image.index }}" class="h-2 w-6 rounded-sm border border-adonai-line {{ image.index === 0 ? 'bg-adonai-primary' : 'bg-adonai-line' }}" aria-label="View image {{ image.index + 1 }}"></button>
+            <button type="button" data-carousel-dot="{{ image.index }}" class="h-2 w-6 rounded-sm border border-adonai-line {{ image.index === 0 ? 'bg-adonai-primary' : 'bg-adonai-line' }}" aria-label="{{ image.label ? 'Show ' + image.label : 'View image ' + (image.index + 1) }}"></button>
           @endeach
         </div>
       @endif
@@ -126,6 +143,51 @@
         </button>
         {{-- Filled in by app.js when the piece is added. --}}
         <p class="text-xs leading-5 text-adonai-muted" data-bag-added role="status" hidden></p>
+      </div>
+
+      {{--
+        Everything about the piece in one place.
+
+        The page already says each of these things somewhere, and a customer
+        deciding on a one-of-one jacket should not have to hunt for them: price,
+        condition, size, measurements and what the piece is, gathered where they
+        can be read in one pass before ordering.
+      --}}
+      <div class="mt-10 border-t border-adonai-line pt-6">
+        <h2 class="text-sm font-extrabold">Everything about this piece</h2>
+        <dl class="mt-4 grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
+          <div>
+            <dt class="text-xs font-bold text-adonai-muted">Price</dt>
+            <dd class="mt-1 font-extrabold text-adonai-ink">
+              {{ product.priceFormatted }}
+              @if(product.originalPriceFormatted)
+                <span class="ml-2 text-xs font-normal text-adonai-muted line-through">{{ product.originalPriceFormatted }}</span>
+              @endif
+            </dd>
+          </div>
+          <div>
+            <dt class="text-xs font-bold text-adonai-muted">Condition</dt>
+            <dd class="mt-1 font-semibold text-adonai-ink">{{ product.condition || 'Not recorded yet' }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-bold text-adonai-muted">Size</dt>
+            <dd class="mt-1 font-semibold text-adonai-ink">{{ product.size || (product.sizes && product.sizes.length ? product.sizes.join(', ') : '') || 'Not recorded yet' }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-bold text-adonai-muted">Category</dt>
+            <dd class="mt-1 font-semibold text-adonai-ink">{{ product.category }}</dd>
+          </div>
+          <div class="col-span-2">
+            <dt class="text-xs font-bold text-adonai-muted">Measurements</dt>
+            <dd class="mt-1 font-semibold text-adonai-ink">{{ product.measurementNote || 'Ask us and we will measure it before you order.' }}</dd>
+          </div>
+          @if(product.details)
+            <div class="col-span-2">
+              <dt class="text-xs font-bold text-adonai-muted">More about this piece</dt>
+              <dd class="mt-1 whitespace-pre-line leading-6 text-adonai-muted">{{ product.details }}</dd>
+            </div>
+          @endif
+        </dl>
       </div>
     </div>
   </div>
