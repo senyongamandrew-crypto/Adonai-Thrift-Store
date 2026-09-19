@@ -28,8 +28,14 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Check Android SDK (preinstalled on runner)
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          ls -lh $ANDROID_HOME 2>&1 | head -n 30
+          sdkmanager --list 2>&1 | head -n 20 || echo "sdkmanager not in PATH, checking..."
+          ls $ANDROID_HOME/cmdline-tools 2>&1 | head -n 20
+          yes | sdkmanager --licenses 2>&1 | tail -n 5 || true
 
       - name: Install JS deps
         working-directory: AdonaiPOS
@@ -37,7 +43,7 @@ jobs:
 
       - name: Expo prebuild (regen android if needed)
         working-directory: AdonaiPOS
-        run: npx expo prebuild --clean --platform android --no-install
+        run: npx expo prebuild --platform android --no-install
 
       - name: Make gradlew executable
         run: chmod +x AdonaiPOS/android/gradlew
