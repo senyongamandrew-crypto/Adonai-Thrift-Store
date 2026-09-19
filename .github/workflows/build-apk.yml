@@ -63,9 +63,21 @@ jobs:
 
       - name: Build APK (release)
         working-directory: AdonaiPOS/android
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee /tmp/gradle.log; exit ${PIPESTATUS[0]}
+
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-logs
+          path: |
+            /tmp/gradle.log
+            AdonaiPOS/android/app/build/outputs/
+            AdonaiPOS/android/build/
+          retention-days: 7
 
       - name: Upload APK artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: AdonaiPOS-release-apk
@@ -73,7 +85,17 @@ jobs:
           retention-days: 14
 
       - name: Summary
+        if: success()
         run: |
           echo "### APK built ✅" >> $GITHUB_STEP_SUMMARY
           echo "Download artifact **AdonaiPOS-release-apk** from this run, then install on phone." >> $GITHUB_STEP_SUMMARY
           ls -lh AdonaiPOS/android/app/build/outputs/apk/release/ >> $GITHUB_STEP_SUMMARY
+
+      - name: Failure summary
+        if: failure()
+        run: |
+          echo "### Build failed ❌" >> $GITHUB_STEP_SUMMARY
+          echo "Last 200 lines of gradle log:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -n 200 /tmp/gradle.log >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
