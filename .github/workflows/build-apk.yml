@@ -22,20 +22,33 @@ jobs:
           cache: npm
           cache-dependency-path: AdonaiPOS/package-lock.json
 
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('AdonaiPOS/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
       - name: Setup Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Check Android SDK (preinstalled on runner)
+      - name: Setup Android SDK + NDK
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-          ls -lh $ANDROID_HOME 2>&1 | head -n 30
-          sdkmanager --list 2>&1 | head -n 20 || echo "sdkmanager not in PATH, checking..."
-          ls $ANDROID_HOME/cmdline-tools 2>&1 | head -n 20
-          yes | sdkmanager --licenses 2>&1 | tail -n 5 || true
+          ls -lh $ANDROID_HOME 2>&1 | head -n 20
+          # Ensure required platform + build-tools + NDK for RN 0.74 / Expo 51
+          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125" 2>&1 | tail -n 20 || \
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125" 2>&1 | tail -n 20
+          yes | sdkmanager --licenses 2>&1 | tail -n 10 || true
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>&1 | tail -n 10 || true
+          echo "sdkmanager done"
+          ls $ANDROID_HOME/build-tools 2>&1 | head -n 20
+          ls $ANDROID_HOME/ndk 2>&1 | head -n 20
 
       - name: Install JS deps
         working-directory: AdonaiPOS
