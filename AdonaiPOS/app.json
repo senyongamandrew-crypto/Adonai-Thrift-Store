@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "Adonai POS",
+    "slug": "adonai-pos",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "adonai-pos",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a1f3f"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.adonai.pos",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Camera is used to scan barcodes and capture product photos for the multi-angle intake pipeline."
+      }
+    },
+    "android": {
+      "package": "com.adonai.pos",
+      "versionCode": 8,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0a1f3f"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to scan barcodes and snap front/back/texture/label photos."
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "extra": {
+      "apiUrl": "https://adonai-thrift-store-hqg3.onrender.com",
+      "eas": {
+        "projectId": "adonai-thrift-store-pos"
+      }
+    }
+  }
+}

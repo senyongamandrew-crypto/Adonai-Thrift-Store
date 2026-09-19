@@ -1,0 +1,11 @@
+node_modules
+build
+.expo
+.expo-shared
+dist
+web-build
+android
+ios
+AdonaiPOS/node_modules
+AdonaiPOS/.expo
+AdonaiPOS/dist
