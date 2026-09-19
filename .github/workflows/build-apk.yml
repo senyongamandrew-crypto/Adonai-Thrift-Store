@@ -1,0 +1,60 @@
+name: Build AdonaiPOS APK
+
+on:
+  push:
+    branches: [ "arena/01a0b946-adonai-thrift-store", "arena/01a0aaa3-adonai-thrift-store", "main" ]
+    paths:
+      - "AdonaiPOS/**"
+      - ".github/workflows/build-apk.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: AdonaiPOS/package-lock.json
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install JS deps
+        working-directory: AdonaiPOS
+        run: npm ci --legacy-peer-deps
+
+      - name: Expo prebuild (regen android if needed)
+        working-directory: AdonaiPOS
+        run: npx expo prebuild --clean --platform android --no-install
+
+      - name: Make gradlew executable
+        run: chmod +x AdonaiPOS/android/gradlew
+
+      - name: Build APK (release)
+        working-directory: AdonaiPOS/android
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AdonaiPOS-release-apk
+          path: AdonaiPOS/android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 14
+
+      - name: Summary
+        run: |
+          echo "### APK built ✅" >> $GITHUB_STEP_SUMMARY
+          echo "Download artifact **AdonaiPOS-release-apk** from this run, then install on phone." >> $GITHUB_STEP_SUMMARY
+          ls -lh AdonaiPOS/android/app/build/outputs/apk/release/ >> $GITHUB_STEP_SUMMARY
