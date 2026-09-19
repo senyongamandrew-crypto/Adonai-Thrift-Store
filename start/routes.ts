@@ -73,6 +73,8 @@ router.delete('/api/products/:id', [PosApiController, 'deleteProduct'])
 router.get('/api/catalog', [PosApiController, 'catalog'])
 router.get('/api/pos/catalog', [PosApiController, 'posCatalog'])
 router.post('/api/pos/catalog', [PosApiController, 'savePosCatalog'])
+router.post('/api/pos/intake', [PosApiController, 'createPosItem']).as('pos.intake')
+router.post('/api/intake', [PosApiController, 'createPosItem']).as('api.intake')
 router.post('/api/pos/catalog/delete', [PosApiController, 'deletePosCatalog'])
 
 /*

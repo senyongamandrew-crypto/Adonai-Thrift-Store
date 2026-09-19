@@ -14,7 +14,8 @@
 |
 */
 
-import type { StoredProduct, ProductInput } from '#services/catalogue_store'
+import type { StoredProduct, ProductInput, ProductImage, ImageTag } from '#services/catalogue_store'
+import { isValidImageTag } from '#services/catalogue_store'
 
 /**
  * The POS stores lists its own way and sends strings for numbers, so everything
@@ -55,6 +56,8 @@ const UNDERSTOOD = new Set([
   'itemName',
   'price',
   'cost',
+  'costPrice',
+  'cost_price',
   'originalPrice',
   'original_price',
   'comparePrice',
@@ -78,6 +81,11 @@ const UNDERSTOOD = new Set([
   'thumbnail',
   'gallery',
   'images',
+  'imageTags',
+  'image_tags',
+  'galleryLabels',
+  'gallery_labels',
+  'imageLabels',
   'bin',
   'status',
   'state',
@@ -85,6 +93,11 @@ const UNDERSTOOD = new Set([
   'qty',
   'stock',
   'stockQty',
+  'stockQuantity',
+  'stock_quantity',
+  'lowStockThreshold',
+  'low_stock_threshold',
+  'lowStock',
   'available',
   'isAvailable',
   'inStock',
@@ -106,7 +119,17 @@ export function fromPosProduct(payload: Payload): ProductInput {
     if (!UNDERSTOOD.has(key)) extras[key] = value
   }
 
-  const quantity = numeric(payload.quantity ?? payload.qty ?? payload.stock ?? payload.stockQty)
+  const quantity = numeric(
+    payload.quantity ??
+      payload.qty ??
+      payload.stock ??
+      payload.stockQty ??
+      payload.stockQuantity ??
+      payload.stock_quantity
+  )
+  const lowStockThreshold = numeric(
+    payload.lowStockThreshold ?? payload.low_stock_threshold ?? payload.lowStock
+  )
   const sold = booleanish(payload.sold)
   const available = firstBooleanish(
     payload.available,
@@ -115,12 +138,17 @@ export function fromPosProduct(payload: Payload): ProductInput {
     payload.active
   )
 
+  // Prefer structured ProductImage array when supplied
+  const structuredImages = imagesOf(payload.images ?? payload.gallery)
+  const galleryFallback = galleryOf(payload.gallery ?? payload.images)
+
   const input: ProductInput = {
     id: text(payload.id ?? payload.sku),
     sku: text(payload.sku),
     name: text(payload.name ?? payload.title ?? payload.itemName),
     price: numeric(payload.price),
     cost: numeric(payload.cost),
+    costPrice: numeric(payload.costPrice ?? payload.cost_price ?? payload.cost),
     originalPrice: numeric(payload.originalPrice ?? payload.original_price ?? payload.comparePrice),
     category: text(payload.category),
     condition: text(payload.condition),
@@ -133,7 +161,8 @@ export function fromPosProduct(payload: Payload): ProductInput {
     image: text(
       payload.image ?? payload.imageUrl ?? payload.image_url ?? payload.photo ?? payload.thumbnail
     ),
-    gallery: galleryOf(payload.gallery ?? payload.images),
+    gallery: structuredImages ? undefined : galleryFallback,
+    images: structuredImages,
     /*
      * Which view each photo shows. Sent as its own list because the gallery may
      * arrive either as plain links or as objects, and pairing the two by position
@@ -145,6 +174,8 @@ export function fromPosProduct(payload: Payload): ProductInput {
     bin: text(payload.bin),
     status: text(payload.status ?? payload.state),
     quantity,
+    stockQuantity: quantity,
+    lowStockThreshold,
     newArrival: firstBooleanish(payload.newArrival, payload.new_arrival, payload.isNewArrival),
     featured: firstBooleanish(payload.featured, payload.isFeatured),
   }
@@ -172,7 +203,8 @@ export function toPosProduct(product: StoredProduct): Record<string, unknown> {
     sku: product.sku ?? product.id,
     name: product.name,
     price: product.price ?? 0,
-    cost: product.cost ?? null,
+    cost: product.cost ?? product.costPrice ?? null,
+    costPrice: product.costPrice ?? product.cost ?? null,
     originalPrice: product.originalPrice ?? null,
     category: product.category ?? '',
     condition: product.condition ?? '',
@@ -185,9 +217,20 @@ export function toPosProduct(product: StoredProduct): Record<string, unknown> {
     image: product.image ?? '',
     gallery: product.gallery ?? [],
     galleryLabels: product.galleryLabels ?? [],
+    images:
+      product.images ??
+      (product.gallery ?? []).map((url, idx) => ({
+        id: `img_${product.id}_${idx}`,
+        url,
+        isPrimary: idx === 0,
+        tag: (idx === 0 ? 'front' : 'other') as ImageTag,
+        order: idx,
+      })),
     bin: product.bin ?? '',
     status: product.status ?? (product.available ? 'available' : 'sold'),
-    quantity: product.quantity ?? (product.available ? 1 : 0),
+    quantity: product.quantity ?? product.stockQuantity ?? (product.available ? 1 : 0),
+    stockQuantity: product.stockQuantity ?? product.quantity ?? (product.available ? 1 : 0),
+    lowStockThreshold: product.lowStockThreshold ?? 5,
     available: product.available,
     newArrival: product.newArrival,
     featured: product.featured ?? product.newArrival,
@@ -255,12 +298,70 @@ function galleryOf(value: unknown): string[] | undefined {
     }
     if (entry && typeof entry === 'object') {
       const record = entry as Payload
+      // Structured ProductImage objects are handled by imagesOf; skip them here
+      if ('isPrimary' in record || 'tag' in record) continue
       const url = text(record.src ?? record.url ?? record.image ?? record.href)
       if (url) items.push(url)
     }
   }
 
   return items.length > 0 ? items : undefined
+}
+
+function imagesOf(value: unknown): ProductImage[] | undefined {
+  if (!Array.isArray(value)) return undefined
+
+  const images: ProductImage[] = []
+  let idx = 0
+  for (const entry of value as unknown[]) {
+    if (!entry || typeof entry !== 'object') continue
+    const record = entry as Record<string, unknown>
+    // Must look like ProductImage: needs url/src and tag/isPrimary/order
+    const hasImageShape =
+      'url' in record || 'src' in record || 'tag' in record || 'isPrimary' in record
+    if (!hasImageShape) continue
+    const url = text(record.url ?? record.src ?? record.image ?? record.href)
+    if (!url) continue
+    const rawTag = String(record.tag ?? 'other')
+      .trim()
+      .toLowerCase()
+    const tag: ImageTag = isValidImageTag(rawTag) ? (rawTag as ImageTag) : 'other'
+    const isPrimary = Boolean(record.isPrimary)
+    const order = Number.isFinite(record.order)
+      ? Math.max(0, Math.floor(Number(record.order)))
+      : idx
+    const id = text(record.id) ?? `img_${Date.now()}_${idx}`
+    images.push({ id, url, isPrimary, tag, order })
+    idx += 1
+  }
+
+  if (images.length === 0) return undefined
+
+  // Normalize: ensure exactly one primary, same logic as catalogue_store
+  images.sort((a, b) => a.order - b.order)
+  images.forEach((img, i) => (img.order = i))
+  const primaryCount = images.filter((i) => i.isPrimary).length
+  if (primaryCount === 0) {
+    images[0].isPrimary = true
+    images[0].tag = 'front'
+  } else if (primaryCount > 1) {
+    let kept = false
+    for (const img of images) {
+      if (img.isPrimary) {
+        if (!kept) kept = true
+        else img.isPrimary = false
+      }
+    }
+  }
+  const primary = images.find((i) => i.isPrimary)
+  if (primary && primary.tag !== 'front') primary.tag = 'front'
+  if (primary) {
+    for (const img of images) {
+      if (img.id !== primary.id && img.tag === 'front') img.tag = 'other'
+    }
+  }
+
+  return images
 }
 
 /**

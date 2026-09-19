@@ -19,7 +19,8 @@
 */
 
 import type { HttpContext } from '@adonisjs/core/http'
-import type { ProductInput, StoredOrder } from '#services/catalogue_store'
+import type { ProductInput, StoredOrder, ProductImage } from '#services/catalogue_store'
+import { validateProductImages } from '#services/catalogue_store'
 import { pinMatchesConfigured, readSuppliedPin } from '#services/shop_pin'
 import { issueToken, pinIsValid, sessionSignedIn, tokenIsValid } from '#services/shop_session'
 import { fromPosProduct, posHealth, toPosProduct } from '#services/pos_sync'
@@ -59,6 +60,90 @@ export default class PosApiController {
 
     /** The storefront's own intake screen holds a signed-in browser session. */
     return sessionSignedIn(ctx)
+  }
+
+  /**
+   * Strict intake validation for the multi-angle pipeline.
+   * Mirrors the Step 3 controller in the spec: enforces data integrity,
+   * image array checks, and single-primary constraint.
+   * Returns an error string or null when valid.
+   * Legacy callers without `images`/`stockQuantity` bypass the strict checks.
+   */
+  private validateIntakePayload(item: Record<string, unknown>): string | null {
+    const hasStructured = Array.isArray((item as any).images)
+    const hasStockField =
+      'stockQuantity' in item ||
+      'stock_quantity' in item ||
+      'lowStockThreshold' in item ||
+      'costPrice' in item
+
+    // Only strictly validate when the new intake panel field set is present
+    if (!hasStructured && !hasStockField) return null
+
+    const name = (item as any).name
+    const sku = (item as any).sku
+    const price = (item as any).price
+    const stockQuantity =
+      (item as any).stockQuantity ??
+      (item as any).stock_quantity ??
+      (item as any).quantity ??
+      (item as any).stockQty
+
+    if (!name || !sku || price === undefined || stockQuantity === undefined) {
+      return 'Missing required item fields.'
+    }
+
+    const qtyNum = Number(stockQuantity)
+    if (Number.isFinite(qtyNum) && qtyNum < 0) {
+      return 'Stock quantity cannot be a negative value.'
+    }
+
+    if (hasStructured) {
+      const images = (item as any).images as ProductImage[]
+      if (!Array.isArray(images) || images.length === 0) {
+        return 'At least one image view must be provided.'
+      }
+      const primaryImages = images.filter((img: any) => img.isPrimary === true)
+      if (primaryImages.length !== 1) {
+        return 'Data validation error: Exactly one image must be marked as the primary (Front) view.'
+      }
+      const imgErr = validateProductImages(images)
+      if (imgErr) return imgErr
+    }
+
+    return null
+  }
+
+  /**
+   * Step 3: Backend Controller Validation Logic (Node.js / Express) — ported to Adonis.
+   * Enforces the same rules for direct website intake (createProduct) when images are supplied.
+   */
+  private validateDirectPayload(payload: ProductInput): string | null {
+    const anyPayload = payload as any
+    const images = anyPayload.images as ProductImage[] | undefined
+    if (images) {
+      if (!Array.isArray(images) || images.length === 0)
+        return 'At least one image view must be provided.'
+      const primaries = images.filter((i: any) => i.isPrimary === true)
+      if (primaries.length !== 1)
+        return 'Data validation error: Exactly one image must be marked as the primary (Front) view.'
+      const err = validateProductImages(images)
+      if (err) return err
+    }
+    const qty = (anyPayload.stockQuantity ?? anyPayload.quantity) as unknown
+    if (qty !== undefined && qty !== null && String(qty).trim() !== '') {
+      const n = Number(qty)
+      if (Number.isFinite(n) && n < 0) return 'Stock quantity cannot be a negative value.'
+    }
+    if (
+      anyPayload.lowStockThreshold !== undefined &&
+      anyPayload.lowStockThreshold !== null &&
+      String(anyPayload.lowStockThreshold).trim() !== ''
+    ) {
+      const n = Number(anyPayload.lowStockThreshold)
+      if (Number.isFinite(n) && n < 1) return 'Low stock threshold must be at least 1.'
+    }
+    return null
   }
 
   /* ------------------------------------------------------------------ health */
@@ -143,13 +228,75 @@ export default class PosApiController {
    * queued write after a network drop, and the second attempt must not create a
    * duplicate listing of a one-of-one piece.
    */
+  /**
+   * Step 3 reference implementation — createPosItem validates name/sku/price/stockQuantity
+   * and the single-primary invariant before persisting. This is the production entry
+   * for the Item Intake Panel; savePosCatalog delegates to it for new-style payloads.
+   */
+  async createPosItem(ctx: HttpContext) {
+    const { request, response } = ctx
+    if (!this.authorised(ctx)) return this.unauthorised(response)
+
+    const body = (request.body() || {}) as Record<string, unknown>
+    const item = (body.item || body.product || body) as Record<string, unknown>
+    const { name, sku, price, stockQuantity, images } = item as any
+
+    // 1. Data Integrity Rules (strict when new fields are present; otherwise defer to legacy)
+    const isStrict = images !== undefined || sku !== undefined || stockQuantity !== undefined
+    if (isStrict) {
+      if (!name || !sku || price === undefined || stockQuantity === undefined) {
+        return response.status(400).send({ ok: false, error: 'Missing required item fields.' })
+      }
+      if (typeof stockQuantity === 'number' && stockQuantity < 0) {
+        return response
+          .status(400)
+          .send({ ok: false, error: 'Stock quantity cannot be a negative value.' })
+      }
+      const qtyNum = Number(stockQuantity)
+      if (Number.isFinite(qtyNum) && qtyNum < 0) {
+        return response
+          .status(400)
+          .send({ ok: false, error: 'Stock quantity cannot be a negative value.' })
+      }
+      // 2. Image Array Checks
+      if (!Array.isArray(images) || images.length === 0) {
+        return response
+          .status(400)
+          .send({ ok: false, error: 'At least one image view must be provided.' })
+      }
+      // 3. Ensure Single Primary Image Constraint
+      const primaryImages = (images as any[]).filter((img: any) => img.isPrimary === true)
+      if (primaryImages.length !== 1) {
+        return response.status(400).send({
+          ok: false,
+          error:
+            'Data validation error: Exactly one image must be marked as the primary (Front) view.',
+        })
+      }
+    }
+
+    return this.savePosCatalog(ctx)
+  }
+
   async savePosCatalog(ctx: HttpContext) {
     const { request, response } = ctx
     if (!this.authorised(ctx)) return this.unauthorised(response)
 
     const body = (request.body() || {}) as Record<string, unknown>
     const item = (body.item || body.product || body) as Record<string, unknown>
+
+    const validationError = this.validateIntakePayload(item)
+    if (validationError) {
+      return response.status(400).send({ ok: false, error: validationError })
+    }
+
     const input = fromPosProduct(item)
+
+    // Additional guard: direct ProductInput validation (stock negative, primary uniqueness)
+    const directErr = this.validateDirectPayload(input as any)
+    if (directErr) {
+      return response.status(400).send({ ok: false, error: directErr })
+    }
 
     if (!input.name && !input.id) {
       return response.status(400).send({ ok: false, error: 'An item needs a name.' })
@@ -160,10 +307,18 @@ export default class PosApiController {
       ? this.store().updateProduct(existing.id, input)
       : this.store().addProduct(input)
 
+    if (!saved) {
+      return response
+        .status(500)
+        .send({ ok: false, error: 'Internal server error processing intake.' })
+    }
+
     return response.status(existing ? 200 : 201).send({
       ok: true,
+      message: 'Product intake successfully processed.',
       item: toPosProduct(saved!),
       product: publicProduct(saved as unknown as Record<string, unknown>),
+      data: saved,
     })
   }
 
@@ -195,17 +350,58 @@ export default class PosApiController {
       return response.status(400).send({ ok: false, error: 'An item needs a name.' })
     }
 
-    const product = this.store().addProduct(payload)
-    return response.status(201).send({ ok: true, product })
+    // Stock quantity may be sent as `stockQuantity` or legacy `quantity`
+    const anyPayload = payload as any
+    const rawQty = anyPayload.stockQuantity ?? anyPayload.quantity
+    if (rawQty !== undefined && rawQty !== null && String(rawQty).trim() !== '') {
+      const n = Number(String(rawQty).replace(/[^0-9.-]/g, ''))
+      if (Number.isFinite(n) && n < 0) {
+        return response
+          .status(400)
+          .send({ ok: false, error: 'Stock quantity cannot be a negative value.' })
+      }
+    }
+
+    const imgErr = this.validateDirectPayload(payload)
+    if (imgErr) {
+      return response.status(400).send({ ok: false, error: imgErr })
+    }
+
+    try {
+      const product = this.store().addProduct(payload)
+      return response.status(201).send({
+        ok: true,
+        message: 'Product intake successfully processed.',
+        product,
+        data: product,
+      })
+    } catch (err: any) {
+      return response
+        .status(500)
+        .send({ ok: false, error: 'Internal server error processing intake.' })
+    }
   }
 
   async updateProduct({ params, request, response }: HttpContext) {
     if (!pinMatchesConfigured(readSuppliedPin(request))) return this.unauthorised(response)
 
-    const updated = this.store().updateProduct(
-      String(params.id || ''),
-      request.body() as ProductInput
-    )
+    const payload = request.body() as ProductInput
+    const anyPayload = payload as any
+    const rawQty = anyPayload.stockQuantity ?? anyPayload.quantity
+    if (rawQty !== undefined && rawQty !== null && String(rawQty).trim() !== '') {
+      const n = Number(String(rawQty).replace(/[^0-9.-]/g, ''))
+      if (Number.isFinite(n) && n < 0) {
+        return response
+          .status(400)
+          .send({ ok: false, error: 'Stock quantity cannot be a negative value.' })
+      }
+    }
+    const imgErr = this.validateDirectPayload(payload)
+    if (imgErr) {
+      return response.status(400).send({ ok: false, error: imgErr })
+    }
+
+    const updated = this.store().updateProduct(String(params.id || ''), payload)
     if (!updated) {
       return response.status(404).send({ ok: false, error: 'That item is not in the catalogue.' })
     }

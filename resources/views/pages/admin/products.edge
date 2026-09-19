@@ -132,14 +132,83 @@
         <p class="adonai-step-label"><span class="adonai-step-number">2</span>What it is and what it costs</p>
 
         <label class="grid gap-2 text-xs font-bold text-adonai-ink">
-          Item name
-          <input class="adonai-input" name="name" type="text" autocomplete="off" value="{{ editing ? editing.name : '' }}" placeholder="Vintage denim jacket" />
+          Item name <span class="text-red-500">*</span>
+          <input class="adonai-input" name="name" type="text" autocomplete="off" required value="{{ editing ? editing.name : '' }}" placeholder="Vintage denim jacket" />
         </label>
 
+        <div class="grid gap-4 sm:grid-cols-2">
+          <label class="grid gap-2 text-xs font-bold text-adonai-ink">
+            SKU / Barcode <span class="text-red-500">*</span>
+            <input class="adonai-input" name="sku" type="text" autocomplete="off" value="{{ editing ? editing.sku || '' : '' }}" placeholder="AD-JKT-001" />
+          </label>
+          <label class="grid gap-2 text-xs font-bold text-adonai-ink">
+            Category
+            <input class="adonai-input" name="category" type="text" autocomplete="off" value="{{ editing ? editing.category || '' : '' }}" placeholder="Outerwear" />
+          </label>
+        </div>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+          <label class="grid gap-2 text-xs font-bold text-adonai-ink">
+            Price in UGX <span class="text-red-500">*</span>
+            <input class="adonai-input" name="price" type="text" inputmode="numeric" autocomplete="off" value="{{ editing && editing.price ? editing.price : '' }}" placeholder="45000" />
+          </label>
+          <label class="grid gap-2 text-xs font-bold text-adonai-ink">
+            Cost Price in UGX
+            <input class="adonai-input" name="costPrice" type="text" inputmode="numeric" autocomplete="off" value="{{ editing ? editing.costPrice || editing.cost || '' : '' }}" placeholder="20000" />
+          </label>
+        </div>
+
         <label class="grid gap-2 text-xs font-bold text-adonai-ink">
-          Price in UGX
-          <input class="adonai-input" name="price" type="text" inputmode="numeric" autocomplete="off" value="{{ editing && editing.price ? editing.price : '' }}" placeholder="45000" />
+          Description
+          <textarea class="adonai-input min-h-20" name="description" placeholder="Stone-washed denim, no marks.">{{ editing ? editing.description || '' : '' }}</textarea>
         </label>
+      </div>
+
+      {{-- --------------------------------------------------- 2b. Stock Quantity Setup — Optimized Stock Count Data Entry --}}
+      <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4" data-stock-group>
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">
+            Initial Stock Quantity <span class="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            min="0"
+            required
+            name="stockQuantity"
+            data-stock-quantity
+            value="{{ editing ? editing.stockQuantity ?? editing.quantity ?? 0 : 0 }}"
+            class="w-full px-3 py-2 text-lg font-bold border rounded-md focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+          />
+          <span data-stock-indicator class="mt-2 inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-bold">—</span>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Low Stock Alert Level</label>
+          <input
+            type="number"
+            min="1"
+            name="lowStockThreshold"
+            data-low-stock
+            value="{{ editing ? editing.lowStockThreshold ?? 5 : 5 }}"
+            class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+          />
+          <p class="mt-1 text-[11px] text-gray-500">Alert when stock ≤ <span data-threshold-display>5</span></p>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Retail Unit Price (UGX)</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            name="price_display"
+            data-price-display
+            value="{{ editing && editing.price ? editing.price : '' }}"
+            class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none bg-white opacity-60"
+            placeholder="45000"
+            readonly
+            title="Edit Price above"
+          />
+          <p class="mt-1 text-[11px] text-gray-500">Mirrors Price in UGX above</p>
+        </div>
       </div>
 
       {{-- ------------------------------------------------- 3. size and grade --}}

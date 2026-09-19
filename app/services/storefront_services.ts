@@ -194,22 +194,28 @@ function normalizeGallery(
       : []
   }
 
+  // Map structured ImageTag to human label when ProductImage objects are present
+  const tagToLabel: Record<string, string> = {
+    front: 'Front view',
+    back: 'Back view',
+    texture: 'Texture close-up',
+    label: 'Label or tag',
+    other: 'Other',
+  }
+
   const images = value
     .map((image, index) => {
       const item = typeof image === 'string' ? { src: image } : (image as Record<string, unknown>)
       const src = asString(item.src || item.image || item.url || fallbackImage)
-      const label = asString(item.label || item.caption || named[index], '').trim()
+      // Structured ProductImage carries tag + isPrimary; map tag to label
+      const tagLabel = typeof item.tag === 'string' ? (tagToLabel[item.tag as string] ?? '') : ''
+      const label = asString(item.label || item.caption || tagLabel || named[index], '').trim()
 
       return {
-        index,
+        index: typeof item.order === 'number' ? (item.order as number) : index,
         src,
         webp: asOptionalString(item.webp || item.imageWebp),
         avif: asOptionalString(item.avif || item.imageAvif),
-        /**
-         * The alternative text names the view too. It is what a customer using a
-         * screen reader hears, and what a search engine indexes — "green dress"
-         * tells neither of them that this is the label inside the collar.
-         */
         alt: asString(
           item.alt,
           label ? `${productName} — ${label}` : `${productName} detail view at Adonai Thrift Store`
@@ -218,6 +224,7 @@ function normalizeGallery(
       }
     })
     .filter((image) => image.src)
+    .sort((a, b) => a.index - b.index)
 
   /**
    * "Photo 2 of 4" is added after the empties are dropped, so the count a customer
