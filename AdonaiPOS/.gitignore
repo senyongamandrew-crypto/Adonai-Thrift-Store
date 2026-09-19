@@ -3,8 +3,6 @@ node_modules
 .expo-shared
 dist
 web-build
-android
-ios
 *.jks
 *.p8
 *.p12
