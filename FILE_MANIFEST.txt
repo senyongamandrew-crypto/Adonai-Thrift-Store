@@ -1,0 +1,43 @@
+ADONAI THRIFT STORE — RENDER.COM DEPLOYMENT MANIFEST
+====================================================
+PROJECT ROOT STRUCTURE (all folders at root level):
+  app/            <- Next.js App Router (Render requires this at root)
+  components/     <- React UI components
+  lib/            <- Utilities, auth, validation, formatting
+  db/             <- Drizzle ORM schema, seed, client
+  server/         <- API logic, WAF, rate limiting, RBAC
+  scripts/        <- Pre-build structure fixer
+  public/         <- Static assets, PWA manifest, service worker
+
+ROOT CONFIG FILES:
+  package.json          - Dependencies & scripts
+  package-lock.json     - Locked dependency tree
+  next.config.ts        - Next.js configuration
+  tsconfig.json         - TypeScript config (@/* -> ./*)
+  postcss.config.mjs    - Tailwind CSS v4
+  drizzle.config.ts     - Drizzle ORM (schema: ./db/schema.ts)
+  eslint.config.mjs     - Linting
+  render.yaml           - Render Blueprint (Web Service + PostgreSQL)
+  .env.example          - Environment variable template
+  .gitignore            - Git ignore rules
+  DEPLOYMENT_RENDER.md  - Setup instructions
+
+APP/ DIRECTORY (57 files - what Render looks for):
+  app/layout.tsx        - Root layout (fonts, PWA metadata)
+  app/page.tsx          - Home / storefront
+  app/globals.css       - Tailwind theme
+  app/icon.svg          - Brand favicon
+  app/manifest.ts       - PWA manifest
+  app/not-found.tsx     - 404 page
+  app/(console)/        - POS, Dashboard, Orders, Inventory, Intake,
+                          Customers, Riders, Ledger, Staff, Settings
+  app/api/              - 32 REST routes (auth, orders, products, etc.)
+  app/about/ privacy/ terms/ tracking/ login/ install/ deploy/ shop/
+
+RENDER BUILD COMMAND:
+  node scripts/fix-structure.js && npm install && npx drizzle-kit push && npm run build
+
+RENDER START COMMAND:
+  npm run start
+
+HEALTH CHECK: /api/health
